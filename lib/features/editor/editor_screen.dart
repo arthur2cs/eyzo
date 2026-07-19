@@ -50,6 +50,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   late TargetScreen _target = widget.initialTarget ?? TargetScreen.simultaneous;
   bool _sending = false;
   bool _isDrawing = false;
+  bool _savedAsFavorite = false;
 
   // Une entrée = snapshot de la frame juste avant un tracé (pixel/ligne/remplissage),
   // pour permettre d'annuler la dernière action (voir specs.md §4.5).
@@ -58,7 +59,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   PixelFrame get _currentFrame => _frames[_currentIndex];
 
   void _updateCurrentFrame(PixelFrame frame) {
-    setState(() => _frames[_currentIndex] = frame);
+    setState(() {
+      _frames[_currentIndex] = frame;
+      _savedAsFavorite = false;
+    });
   }
 
   void _onDrawingChanged(bool drawing) {
@@ -78,6 +82,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final clamped = index.clamp(0, _frames.length - 1);
       _frames[clamped] = frame;
       _currentIndex = clamped;
+      _savedAsFavorite = false;
     });
   }
 
@@ -85,6 +90,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     setState(() {
       _frames.insert(_currentIndex + 1, _currentFrame.copyWith());
       _currentIndex++;
+      _savedAsFavorite = false;
     });
   }
 
@@ -93,6 +99,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     setState(() {
       _frames.removeAt(_currentIndex);
       _currentIndex = _currentIndex.clamp(0, _frames.length - 1);
+      _savedAsFavorite = false;
     });
   }
 
@@ -152,6 +159,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           ),
         );
     if (mounted) {
+      setState(() => _savedAsFavorite = true);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Ajouté aux favoris.')));
@@ -166,7 +174,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         actions: [
           IconButton(
             onPressed: _saveFavorite,
-            icon: const Icon(Icons.bookmark_add_outlined),
+            icon: Icon(
+              _savedAsFavorite ? Icons.bookmark : Icons.bookmark_add_outlined,
+              color: _savedAsFavorite ? AppColors.accent : null,
+            ),
           ),
         ],
       ),
@@ -181,16 +192,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   label: 'Droite',
                   lens: PixelAnimationPreview(
                     animation: _animation,
-                    width: 110,
+                    width: 130,
                     active: _target.showsRight,
+                    emptyRgb565: _eraseColor,
                   ),
                 ),
                 leftLens: LensWithLabel(
                   label: 'Gauche',
                   lens: PixelAnimationPreview(
                     animation: _animation,
-                    width: 110,
+                    width: 130,
                     active: _target.showsLeft,
+                    emptyRgb565: _eraseColor,
                   ),
                 ),
               ),

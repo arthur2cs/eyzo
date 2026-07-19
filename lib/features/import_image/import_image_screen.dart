@@ -35,6 +35,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
   TargetScreen _target = TargetScreen.simultaneous;
   bool _loading = false;
   bool _sending = false;
+  bool _savedAsFavorite = false;
   String? _error;
 
   // Conservés pour pouvoir re-décoder si l'utilisateur change la résolution
@@ -60,6 +61,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
       _error = null;
       _sourceBytes = bytes;
       _sourceIsGif = isGif;
+      _savedAsFavorite = false;
     });
     try {
       final animation = decodeImageBytesToAnimation(
@@ -140,6 +142,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
           ),
         );
     if (mounted) {
+      setState(() => _savedAsFavorite = true);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Ajouté aux favoris.')));
@@ -201,7 +204,10 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
           if (_animation != null)
             IconButton(
               onPressed: _saveFavorite,
-              icon: const Icon(Icons.bookmark_add_outlined),
+              icon: Icon(
+                _savedAsFavorite ? Icons.bookmark : Icons.bookmark_add_outlined,
+                color: _savedAsFavorite ? AppColors.accent : null,
+              ),
             ),
         ],
       ),

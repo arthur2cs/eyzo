@@ -30,33 +30,43 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
+        child: Padding(
           padding: const EdgeInsets.all(16),
-          children: [
-            _ModeCard(
-              icon: Icons.text_fields,
-              label: 'Texte défilant',
-              onTap: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const TextScreen())),
-            ),
-            const SizedBox(height: 12),
-            _ModeCard(
-              icon: Icons.photo_library_outlined,
-              label: 'Import image / GIF',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ImportImageScreen()),
+          child: Column(
+            children: [
+              Expanded(
+                child: _ModeCard(
+                  icon: Icons.text_fields,
+                  label: 'Texte défilant',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TextScreen()),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _ModeCard(
-              icon: Icons.brush_outlined,
-              label: 'Éditeur pixel-art',
-              onTap: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const EditorScreen())),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Expanded(
+                child: _ModeCard(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Import image / GIF',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ImportImageScreen(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _ModeCard(
+                  icon: Icons.brush_outlined,
+                  label: 'Éditeur pixel-art',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const EditorScreen()),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -76,27 +86,32 @@ class _ModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Row(
-            children: [
-              Icon(icon, size: 26, color: AppColors.textPrimary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
+    return SizedBox.expand(
+      child: Card(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(icon, size: 26, color: AppColors.textPrimary),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
-            ],
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
           ),
         ),
       ),

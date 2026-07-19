@@ -23,9 +23,13 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 ## 3. Design / UI
 
 - **Thème** : dark mode uniquement (pas de light mode), noir dominant / texte blanc
-- **Style** : minimaliste, sobre, épuré — pas de couleurs superflues dans l'UI de l'app (les sélecteurs de couleur pour le contenu envoyé aux lunettes restent en couleur, eux)
+- **Style** : minimaliste et sobre dans la structure, mais avec une touche kawaii assumée en clin d'œil à l'icône panda — typographie et boutons généreux/arrondis plutôt que stricts
 - **Icône app** : panda mignon (asset fourni par l'utilisateur, à intégrer dans `assets/icon/`)
-- **Typographie** : simple, lisible, cohérente avec un look tech sobre
+- **Palette inspirée du panda** :
+  - Noir/blanc en base
+  - Gris `#59595C` (tache "à lunettes" du panda) pour les bordures et éléments neutres
+  - Rose `#FB7B77` (langue du panda) en accent vif, réservé à **exactement 3 usages** : le statut "connecté", l'indicateur de navigation (Accueil/Favoris/Paramètres) et le focus des champs de texte (bordure pendant la saisie, icône favoris une fois enregistré) — jamais dans les sélections/contrôles des pages (chips, segmented button, slider restent en blanc/noir neutre)
+- **Typographie** : police arrondie et généreuse (Quicksand) pour un rendu plus doux/amical que la police système par défaut ; boutons avec padding et rayons de bordure généreux (20dp). Police embarquée localement dans `assets/fonts/` (aucun téléchargement au premier lancement)
 - **Aperçu miroir** : les écrans de composition affichent les 2 verres côte à côte selon la convention "je vois ce que le porteur montre au public" — le verre **droit** du porteur est affiché à **gauche** dans l'app, le verre **gauche** du porteur à **droite** (vue miroir, comme se faire face)
 - **Format des cadres d'aperçu** : dessinés au ratio **3:2** (plus large que haut) pour un rendu visuellement plus proche d'un vrai petit écran de lunettes que le ratio natif 3:4 du panneau ST7789V (240x320) — un choix esthétique côté app, sans lien avec la résolution réelle des données envoyées (voir §6.3)
 
@@ -186,6 +190,7 @@ En-tête commun à chaque paquet (chunk) :
 - **Traitement image** : package `image` (redimensionnement, conversion RGB565), `image_picker` (import galerie/GIF)
 - **Banque de GIF externe** : insertion clavier via `contentInsertionConfiguration` (Flutter) + pont natif Android (`MethodChannel` Kotlin) pour la lecture des URI `content://`
 - **Icône d'app** : `flutter_launcher_icons` avec l'asset panda fourni
+- **Typographie** : police Quicksand embarquée localement (`assets/fonts/`, licence SIL OFL), déclarée nativement via `pubspec.yaml` — pas de dépendance réseau
 
 ## 8. Roadmap proposée
 

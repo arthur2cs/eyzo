@@ -14,6 +14,7 @@ class PixelAnimationPreview extends StatefulWidget {
     required this.animation,
     this.width = 160,
     this.active = true,
+    this.emptyRgb565,
   });
 
   final PixelAnimation animation;
@@ -21,6 +22,12 @@ class PixelAnimationPreview extends StatefulWidget {
 
   /// Si false, simule un écran éteint (verre non ciblé par l'envoi en cours).
   final bool active;
+
+  /// Si la frame affichée est entièrement de cette couleur (ex : canevas
+  /// jamais dessiné), affiche le même placeholder "vide" que l'import
+  /// image/GIF plutôt qu'un rectangle plein qui se fond dans le fond noir
+  /// de l'app (voir specs.md §3 — cohérence des aperçus).
+  final int? emptyRgb565;
 
   @override
   State<PixelAnimationPreview> createState() => _PixelAnimationPreviewState();
@@ -89,6 +96,20 @@ class _PixelAnimationPreviewState extends State<PixelAnimationPreview> {
     }
     final frame =
         widget.animation.frames[_frameIndex % widget.animation.frames.length];
+    final empty = widget.emptyRgb565;
+    if (empty != null && frame.isUniform(empty)) {
+      return GlassesScreenFrame(
+        width: widget.width,
+        backgroundColor: AppColors.surface,
+        child: const Center(
+          child: Icon(
+            Icons.brush_outlined,
+            size: 32,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      );
+    }
     return GlassesScreenFrame(
       width: widget.width,
       child: CustomPaint(

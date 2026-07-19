@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
+
 Future<String?> showSaveFavoriteDialog(
   BuildContext context, {
   String initialName = '',
@@ -9,13 +11,24 @@ Future<String?> showSaveFavoriteDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Ajouter aux favoris'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        decoration: const InputDecoration(labelText: 'Nom du favori'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Nom du favori',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'Nom du favori…'),
+          ),
+        ],
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Annuler'),
         ),

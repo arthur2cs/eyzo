@@ -32,6 +32,7 @@ class _TextScreenState extends ConsumerState<TextScreen> {
   late TextContent _content;
   TargetScreen _target = TargetScreen.simultaneous;
   bool _sending = false;
+  bool _savedAsFavorite = false;
 
   @override
   void initState() {
@@ -39,7 +40,10 @@ class _TextScreenState extends ConsumerState<TextScreen> {
     _content = widget.initial ?? const TextContent(text: '');
     _textController = TextEditingController(text: _content.text);
     _textController.addListener(() {
-      setState(() => _content = _content.copyWith(text: _textController.text));
+      setState(() {
+        _content = _content.copyWith(text: _textController.text);
+        _savedAsFavorite = false;
+      });
     });
   }
 
@@ -99,6 +103,7 @@ class _TextScreenState extends ConsumerState<TextScreen> {
           ),
         );
     if (mounted) {
+      setState(() => _savedAsFavorite = true);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Ajouté aux favoris.')));
@@ -113,7 +118,10 @@ class _TextScreenState extends ConsumerState<TextScreen> {
         actions: [
           IconButton(
             onPressed: _saveFavorite,
-            icon: const Icon(Icons.bookmark_add_outlined),
+            icon: Icon(
+              _savedAsFavorite ? Icons.bookmark : Icons.bookmark_add_outlined,
+              color: _savedAsFavorite ? AppColors.accent : null,
+            ),
           ),
         ],
       ),

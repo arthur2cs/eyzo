@@ -34,6 +34,16 @@ class PixelFrame {
     return (pixelsRgb565[i] << 8) | pixelsRgb565[i + 1];
   }
 
+  /// Vrai si tous les pixels valent [rgb565] (ex : canevas vierge jamais dessiné).
+  bool isUniform(int rgb565) {
+    final hi = (rgb565 >> 8) & 0xFF;
+    final lo = rgb565 & 0xFF;
+    for (var i = 0; i < pixelsRgb565.length; i += 2) {
+      if (pixelsRgb565[i] != hi || pixelsRgb565[i + 1] != lo) return false;
+    }
+    return true;
+  }
+
   PixelFrame setPixel(int x, int y, int rgb565) {
     final copy = Uint8List.fromList(pixelsRgb565);
     final i = (y * width + x) * 2;
