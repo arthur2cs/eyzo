@@ -14,7 +14,9 @@ Future<bool> requestBlePermissions() async {
     Permission.locationWhenInUse,
   ].request();
 
-  return statuses.values.every((status) => status.isGranted || status.isLimited);
+  return statuses.values.every(
+    (status) => status.isGranted || status.isLimited,
+  );
 }
 
 Future<bool> hasBlePermissions() async {
@@ -22,5 +24,7 @@ Future<bool> hasBlePermissions() async {
   final scan = await Permission.bluetoothScan.status;
   final connect = await Permission.bluetoothConnect.status;
   final location = await Permission.locationWhenInUse.status;
-  return scan.isGranted && connect.isGranted && (location.isGranted || location.isLimited);
+  return scan.isGranted &&
+      connect.isGranted &&
+      (location.isGranted || location.isLimited);
 }

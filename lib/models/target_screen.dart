@@ -8,4 +8,11 @@ enum TargetScreen {
 
   final int byte;
   final String label;
+
+  /// Le verre GAUCHE du porteur reçoit-il du contenu ?
+  bool get showsLeft => this == TargetScreen.left || this == TargetScreen.both;
+
+  /// Le verre DROIT du porteur reçoit-il du contenu ?
+  bool get showsRight =>
+      this == TargetScreen.right || this == TargetScreen.both;
 }

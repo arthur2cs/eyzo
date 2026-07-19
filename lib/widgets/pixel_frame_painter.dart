@@ -27,5 +27,6 @@ class PixelFramePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant PixelFramePainter oldDelegate) => oldDelegate.frame != frame;
+  bool shouldRepaint(covariant PixelFramePainter oldDelegate) =>
+      oldDelegate.frame != frame;
 }

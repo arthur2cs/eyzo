@@ -12,6 +12,9 @@ import '../../models/favorite_item.dart';
 import '../../models/pixel_animation.dart';
 import '../../models/target_screen.dart';
 import '../../widgets/color_swatch_picker.dart';
+import '../../widgets/dual_lens_row.dart';
+import '../../widgets/lens_with_label.dart';
+import '../../widgets/pixel_animation_preview.dart';
 import '../../widgets/pixel_frame_painter.dart';
 import '../../widgets/save_favorite_dialog.dart';
 import '../../widgets/target_screen_selector.dart';
@@ -33,7 +36,13 @@ class EditorScreen extends ConsumerStatefulWidget {
 class _EditorScreenState extends ConsumerState<EditorScreen> {
   late final List<PixelFrame> _frames = widget.initialAnimation != null
       ? List.of(widget.initialAnimation!.frames)
-      : [PixelFrame.blank(EyzoGrid.defaultWidth, EyzoGrid.defaultHeight, fillRgb565: _eraseColor)];
+      : [
+          PixelFrame.blank(
+            EyzoGrid.defaultWidth,
+            EyzoGrid.defaultHeight,
+            fillRgb565: _eraseColor,
+          ),
+        ];
   int _currentIndex = 0;
   late int _frameDelayMs = widget.initialAnimation?.frameDelayMs ?? 150;
   EditorTool _tool = EditorTool.pixel;
@@ -72,12 +81,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     });
   }
 
-  PixelAnimation get _animation => PixelAnimation(frames: _frames, frameDelayMs: _frameDelayMs);
+  PixelAnimation get _animation =>
+      PixelAnimation(frames: _frames, frameDelayMs: _frameDelayMs);
 
   Future<void> _send() async {
-    final connected = ref.read(connectionStateProvider).value == BleConnectionState.connected;
+    final connected =
+        ref.read(connectionStateProvider).value == BleConnectionState.connected;
     if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lunettes non connectées.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lunettes non connectées.')));
       return;
     }
     setState(() => _sending = true);
@@ -85,14 +98,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       if (_frames.length > 1) {
         await ref.read(bleServiceProvider).sendAnimation(_target, _animation);
       } else {
-        await ref.read(bleServiceProvider).sendStaticImage(_target, _currentFrame);
+        await ref
+            .read(bleServiceProvider)
+            .sendStaticImage(_target, _currentFrame);
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dessin envoyé.')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Dessin envoyé.')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Échec de l\'envoi : $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Échec de l\'envoi : $e')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -100,9 +119,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   Future<void> _saveFavorite() async {
-    final name = await showSaveFavoriteDialog(context, initialName: 'Mon dessin');
+    final name = await showSaveFavoriteDialog(
+      context,
+      initialName: 'Mon dessin',
+    );
     if (name == null || name.isEmpty) return;
-    await ref.read(favoritesProvider.notifier).add(
+    await ref
+        .read(favoritesProvider.notifier)
+        .add(
           FavoriteItem(
             id: const Uuid().v4(),
             name: name,
@@ -113,7 +137,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           ),
         );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajouté aux favoris.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ajouté aux favoris.')));
     }
   }
 
@@ -123,110 +149,167 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       appBar: AppBar(
         title: const Text('Éditeur pixel-art'),
         actions: [
-          IconButton(onPressed: _saveFavorite, icon: const Icon(Icons.bookmark_add_outlined)),
+          IconButton(
+            onPressed: _saveFavorite,
+            icon: const Icon(Icons.bookmark_add_outlined),
+          ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Center(
-            child: SizedBox(
-              width: 240,
-              child: PixelArtCanvas(
-                frame: _currentFrame,
-                tool: _tool,
-                drawColor: colorToRgb565(_drawColor),
-                eraseColor: _eraseColor,
-                onFrameChanged: _updateCurrentFrame,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            Center(
+              child: SizedBox(
+                width: 240,
+                child: PixelArtCanvas(
+                  frame: _currentFrame,
+                  tool: _tool,
+                  drawColor: colorToRgb565(_drawColor),
+                  eraseColor: _eraseColor,
+                  onFrameChanged: _updateCurrentFrame,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            alignment: WrapAlignment.center,
-            children: EditorTool.values.map((tool) {
-              return ChoiceChip(
-                label: Text(tool.label),
-                selected: _tool == tool,
-                onSelected: (_) => setState(() => _tool = tool),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: _clearFrame,
-            icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-            label: const Text('Effacer la frame'),
-          ),
-          const SizedBox(height: 8),
-          const Text('Couleur', style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          ColorSwatchPicker(value: _drawColor, onChanged: (c) => setState(() => _drawColor = c)),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              const Text('Frames', style: TextStyle(color: AppColors.textSecondary)),
-              const Spacer(),
-              IconButton(
-                onPressed: _frames.length > 1 ? _deleteFrame : null,
-                icon: const Icon(Icons.delete_outline),
-              ),
-              IconButton(onPressed: _addFrame, icon: const Icon(Icons.add_box_outlined)),
-            ],
-          ),
-          SizedBox(
-            height: 64,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _frames.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final selected = index == _currentIndex;
-                return GestureDetector(
-                  onTap: () => setState(() => _currentIndex = index),
-                  child: Container(
-                    width: 48,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: selected ? AppColors.textPrimary : AppColors.border, width: 2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: CustomPaint(painter: PixelFramePainter(_frames[index])),
-                  ),
-                );
-              },
-            ),
-          ),
-          if (_frames.length > 1) ...[
             const SizedBox(height: 16),
-            const Text('Délai entre frames', style: TextStyle(color: AppColors.textSecondary)),
-            Slider(
-              value: _frameDelayMs.toDouble(),
-              min: 50,
-              max: 1000,
-              divisions: 19,
-              label: '$_frameDelayMs ms',
-              onChanged: (v) => setState(() => _frameDelayMs = v.round()),
+            Wrap(
+              spacing: 8,
+              alignment: WrapAlignment.center,
+              children: EditorTool.values.map((tool) {
+                return ChoiceChip(
+                  label: Text(tool.label),
+                  selected: _tool == tool,
+                  onSelected: (_) => setState(() => _tool = tool),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: _clearFrame,
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: const Text('Effacer la frame'),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Couleur',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            ColorSwatchPicker(
+              value: _drawColor,
+              onChanged: (c) => setState(() => _drawColor = c),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Text(
+                  'Frames',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _frames.length > 1 ? _deleteFrame : null,
+                  icon: const Icon(Icons.delete_outline),
+                ),
+                IconButton(
+                  onPressed: _addFrame,
+                  icon: const Icon(Icons.add_box_outlined),
+                ),
+              ],
+            ),
+            SizedBox(
+              height: 64,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _frames.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final selected = index == _currentIndex;
+                  return GestureDetector(
+                    onTap: () => setState(() => _currentIndex = index),
+                    child: Container(
+                      width: 48,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.textPrimary
+                              : AppColors.border,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: CustomPaint(
+                        painter: PixelFramePainter(_frames[index]),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (_frames.length > 1) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Délai entre frames',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              Slider(
+                value: _frameDelayMs.toDouble(),
+                min: 50,
+                max: 1000,
+                divisions: 19,
+                label: '$_frameDelayMs ms',
+                onChanged: (v) => setState(() => _frameDelayMs = v.round()),
+              ),
+            ],
+            const SizedBox(height: 16),
+            const Text(
+              'Écran cible',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            TargetScreenSelector(
+              value: _target,
+              onChanged: (v) => setState(() => _target = v),
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: DualLensRow(
+                rightLens: LensWithLabel(
+                  label: 'Droite',
+                  lens: PixelAnimationPreview(
+                    animation: _animation,
+                    width: 110,
+                    active: _target.showsRight,
+                  ),
+                ),
+                leftLens: LensWithLabel(
+                  label: 'Gauche',
+                  lens: PixelAnimationPreview(
+                    animation: _animation,
+                    width: 110,
+                    active: _target.showsLeft,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _sending ? null : _send,
+              icon: _sending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.background,
+                      ),
+                    )
+                  : const Icon(Icons.send),
+              label: Text(_sending ? 'Envoi…' : 'Envoyer aux lunettes'),
             ),
           ],
-          const SizedBox(height: 16),
-          const Text('Écran cible', style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          TargetScreenSelector(value: _target, onChanged: (v) => setState(() => _target = v)),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _sending ? null : _send,
-            icon: _sending
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.background),
-                  )
-                : const Icon(Icons.send),
-            label: Text(_sending ? 'Envoi…' : 'Envoyer aux lunettes'),
-          ),
-        ],
+        ),
       ),
     );
   }

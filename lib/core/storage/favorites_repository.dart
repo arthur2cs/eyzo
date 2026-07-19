@@ -9,7 +9,9 @@ class FavoritesRepository {
 
   List<FavoriteItem> getAll() {
     final items = _box.values
-        .map((raw) => FavoriteItem.fromJson(Map<String, dynamic>.from(raw as Map)))
+        .map(
+          (raw) => FavoriteItem.fromJson(Map<String, dynamic>.from(raw as Map)),
+        )
         .toList();
     items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;

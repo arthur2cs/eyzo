@@ -14,17 +14,25 @@ import '../text/text_screen.dart';
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
 
-  Future<void> _resend(BuildContext context, WidgetRef ref, FavoriteItem item) async {
-    final connected = ref.read(connectionStateProvider).value == BleConnectionState.connected;
+  Future<void> _resend(
+    BuildContext context,
+    WidgetRef ref,
+    FavoriteItem item,
+  ) async {
+    final connected =
+        ref.read(connectionStateProvider).value == BleConnectionState.connected;
     if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lunettes non connectées.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lunettes non connectées.')));
       return;
     }
     final service = ref.read(bleServiceProvider);
     try {
       if (item.type == FavoriteType.text && item.textContent != null) {
         await service.sendText(item.targetScreen, item.textContent!);
-      } else if (item.type == FavoriteType.animation && item.animation != null) {
+      } else if (item.type == FavoriteType.animation &&
+          item.animation != null) {
         final anim = item.animation!;
         if (anim.frames.length > 1) {
           await service.sendAnimation(item.targetScreen, anim);
@@ -33,11 +41,15 @@ class FavoritesScreen extends ConsumerWidget {
         }
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Renvoyé aux lunettes.')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Renvoyé aux lunettes.')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Échec de l\'envoi : $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Échec de l\'envoi : $e')));
       }
     }
   }
@@ -45,12 +57,17 @@ class FavoritesScreen extends ConsumerWidget {
   void _edit(BuildContext context, FavoriteItem item) {
     if (item.type == FavoriteType.text && item.textContent != null) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => TextScreen(initial: item.textContent)),
+        MaterialPageRoute(
+          builder: (_) => TextScreen(initial: item.textContent),
+        ),
       );
     } else if (item.type == FavoriteType.animation && item.animation != null) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => EditorScreen(initialAnimation: item.animation, initialTarget: item.targetScreen),
+          builder: (_) => EditorScreen(
+            initialAnimation: item.animation,
+            initialTarget: item.targetScreen,
+          ),
         ),
       );
     }
@@ -84,10 +101,15 @@ class FavoritesScreen extends ConsumerWidget {
             leading: SizedBox(
               width: 40,
               height: 40,
-              child: item.type == FavoriteType.animation && item.animation != null
+              child:
+                  item.type == FavoriteType.animation && item.animation != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: CustomPaint(painter: PixelFramePainter(item.animation!.frames.first)),
+                      child: CustomPaint(
+                        painter: PixelFramePainter(
+                          item.animation!.frames.first,
+                        ),
+                      ),
                     )
                   : const Icon(Icons.text_fields),
             ),
@@ -110,8 +132,12 @@ class FavoritesScreen extends ConsumerWidget {
                   tooltip: 'Éditer',
                 ),
                 IconButton(
-                  onPressed: () => ref.read(favoritesProvider.notifier).remove(item.id),
-                  icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                  onPressed: () =>
+                      ref.read(favoritesProvider.notifier).remove(item.id),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.danger,
+                  ),
                   tooltip: 'Supprimer',
                 ),
               ],

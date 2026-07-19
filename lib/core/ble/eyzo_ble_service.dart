@@ -31,7 +31,9 @@ class EyzoBleService {
 
   bool get isConnected => _device?.isConnected ?? false;
 
-  Stream<List<ScanResult>> startScan({Duration timeout = const Duration(seconds: 8)}) {
+  Stream<List<ScanResult>> startScan({
+    Duration timeout = const Duration(seconds: 8),
+  }) {
     FlutterBluePlus.startScan(timeout: timeout);
     return FlutterBluePlus.scanResults;
   }
@@ -117,7 +119,10 @@ class EyzoBleService {
       throw StateError('Non connecté aux lunettes.');
     }
     for (final chunk in chunks) {
-      await char.write(chunk, withoutResponse: char.properties.writeWithoutResponse);
+      await char.write(
+        chunk,
+        withoutResponse: char.properties.writeWithoutResponse,
+      );
     }
   }
 
@@ -127,14 +132,18 @@ class EyzoBleService {
   Future<void> sendStaticImage(TargetScreen screen, PixelFrame frame) =>
       _writeChunks(EyzoPacketBuilder.setStaticImage(screen, frame));
 
-  Future<void> sendAnimation(TargetScreen screen, PixelAnimation animation) async {
+  Future<void> sendAnimation(
+    TargetScreen screen,
+    PixelAnimation animation,
+  ) async {
     final framePackets = EyzoPacketBuilder.setAnimation(screen, animation);
     for (final chunks in framePackets) {
       await _writeChunks(chunks);
     }
   }
 
-  Future<void> clearScreen(TargetScreen screen) => _writeChunks([EyzoPacketBuilder.clearScreen(screen)]);
+  Future<void> clearScreen(TargetScreen screen) =>
+      _writeChunks([EyzoPacketBuilder.clearScreen(screen)]);
 
   Future<void> ping() => _writeChunks([EyzoPacketBuilder.ping()]);
 

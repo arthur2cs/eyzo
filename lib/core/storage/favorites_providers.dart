@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/favorite_item.dart';
 import 'favorites_repository.dart';
 
-final favoritesRepositoryProvider = Provider<FavoritesRepository>((ref) => FavoritesRepository());
+final favoritesRepositoryProvider = Provider<FavoritesRepository>(
+  (ref) => FavoritesRepository(),
+);
 
 class FavoritesController extends StateNotifier<List<FavoriteItem>> {
   FavoritesController(this._repository) : super(_repository.getAll());
@@ -21,6 +23,7 @@ class FavoritesController extends StateNotifier<List<FavoriteItem>> {
   }
 }
 
-final favoritesProvider = StateNotifierProvider<FavoritesController, List<FavoriteItem>>((ref) {
-  return FavoritesController(ref.watch(favoritesRepositoryProvider));
-});
+final favoritesProvider =
+    StateNotifierProvider<FavoritesController, List<FavoriteItem>>((ref) {
+      return FavoritesController(ref.watch(favoritesRepositoryProvider));
+    });

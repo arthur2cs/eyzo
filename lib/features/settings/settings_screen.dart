@@ -12,20 +12,27 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final connectionState = ref.watch(connectionStateProvider).value ?? BleConnectionState.disconnected;
+    final connectionState =
+        ref.watch(connectionStateProvider).value ??
+        BleConnectionState.disconnected;
     final lastDeviceName = ref.watch(settingsStoreProvider).lastDeviceName;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Appareil', style: TextStyle(color: AppColors.textSecondary)),
+        const Text(
+          'Appareil',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
         const SizedBox(height: 8),
         Card(
           child: ListTile(
             leading: const Icon(Icons.bluetooth),
             title: Text(lastDeviceName ?? 'Aucun appareil appairé'),
             subtitle: Text(
-              connectionState == BleConnectionState.connected ? 'Connecté' : 'Déconnecté',
+              connectionState == BleConnectionState.connected
+                  ? 'Connecté'
+                  : 'Déconnecté',
             ),
             trailing: TextButton(
               onPressed: () => Navigator.of(context).push(
@@ -36,7 +43,10 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
-        const Text('À propos', style: TextStyle(color: AppColors.textSecondary)),
+        const Text(
+          'À propos',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
         const SizedBox(height: 8),
         Card(
           child: FutureBuilder<PackageInfo>(
@@ -47,7 +57,9 @@ class SettingsScreen extends ConsumerWidget {
               return ListTile(
                 leading: const Icon(Icons.info_outline),
                 title: const Text('Eyzo'),
-                subtitle: Text('Version $version${buildNumber.isNotEmpty ? '+$buildNumber' : ''}'),
+                subtitle: Text(
+                  'Version $version${buildNumber.isNotEmpty ? '+$buildNumber' : ''}',
+                ),
               );
             },
           ),

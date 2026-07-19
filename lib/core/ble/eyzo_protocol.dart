@@ -10,8 +10,10 @@ class EyzoProtocol {
   static const String eventCharUuid = '4e4a0003-6f61-4c1e-8c3a-4e4a656f7a30';
 
   // Battery Service standard BLE (SIG)
-  static const String batteryServiceUuid = '0000180f-0000-1000-8000-00805f9b34fb';
-  static const String batteryLevelCharUuid = '00002a19-0000-1000-8000-00805f9b34fb';
+  static const String batteryServiceUuid =
+      '0000180f-0000-1000-8000-00805f9b34fb';
+  static const String batteryLevelCharUuid =
+      '00002a19-0000-1000-8000-00805f9b34fb';
 
   static const String deviceNamePrefix = 'Eyzo';
 

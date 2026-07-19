@@ -65,9 +65,13 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
     });
     try {
       await ref.read(bleServiceProvider).connect(device);
-      await ref.read(settingsStoreProvider).saveLastDevice(
+      await ref
+          .read(settingsStoreProvider)
+          .saveLastDevice(
             id: device.remoteId.str,
-            name: device.platformName.isNotEmpty ? device.platformName : device.remoteId.str,
+            name: device.platformName.isNotEmpty
+                ? device.platformName
+                : device.remoteId.str,
           );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -84,95 +88,124 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final connectionState = ref.watch(connectionStateProvider).value ?? BleConnectionState.disconnected;
+    final connectionState =
+        ref.watch(connectionStateProvider).value ??
+        BleConnectionState.disconnected;
     final currentDeviceName = ref.read(settingsStoreProvider).lastDeviceName;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Connexion aux lunettes')),
-      body: Column(
-        children: [
-          if (connectionState == BleConnectionState.connected)
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (connectionState == BleConnectionState.connected)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.textPrimary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Connecté à ${currentDeviceName ?? 'lunettes Eyzo'}',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _forgetDevice,
+                          child: const Text('Oublier'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle, color: AppColors.textPrimary),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Connecté à ${currentDeviceName ?? 'lunettes Eyzo'}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      TextButton(onPressed: _forgetDevice, child: const Text('Oublier')),
-                    ],
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _scanning ? null : _startScan,
+                  icon: _scanning
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.background,
+                          ),
+                        )
+                      : const Icon(Icons.bluetooth_searching),
+                  label: Text(
+                    _scanning
+                        ? 'Recherche en cours…'
+                        : 'Rechercher les lunettes',
                   ),
                 ),
               ),
             ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(_error!, style: const TextStyle(color: AppColors.danger)),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _scanning ? null : _startScan,
-                icon: _scanning
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.background),
-                      )
-                    : const Icon(Icons.bluetooth_searching),
-                label: Text(_scanning ? 'Recherche en cours…' : 'Rechercher les lunettes'),
-              ),
-            ),
-          ),
-          Expanded(
-            child: _results.isEmpty
-                ? Center(
-                    child: Text(
-                      _scanning ? 'Recherche des appareils BLE à proximité…' : 'Aucun appareil détecté.',
-                      style: const TextStyle(color: AppColors.textSecondary),
+            Expanded(
+              child: _results.isEmpty
+                  ? Center(
+                      child: Text(
+                        _scanning
+                            ? 'Recherche des appareils BLE à proximité…'
+                            : 'Aucun appareil détecté.',
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _results.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final result = _results[index];
+                        final device = result.device;
+                        final name = device.platformName.isNotEmpty
+                            ? device.platformName
+                            : 'Appareil inconnu';
+                        final isConnecting =
+                            _connectingId == device.remoteId.str;
+                        return Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.bluetooth),
+                            title: Text(name),
+                            subtitle: Text(
+                              '${device.remoteId.str} • RSSI ${result.rssi}',
+                            ),
+                            trailing: isConnecting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : OutlinedButton(
+                                    onPressed: () => _connect(device),
+                                    child: const Text('Appairer'),
+                                  ),
+                          ),
+                        );
+                      },
                     ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _results.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final result = _results[index];
-                      final device = result.device;
-                      final name = device.platformName.isNotEmpty ? device.platformName : 'Appareil inconnu';
-                      final isConnecting = _connectingId == device.remoteId.str;
-                      return Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.bluetooth),
-                          title: Text(name),
-                          subtitle: Text('${device.remoteId.str} • RSSI ${result.rssi}'),
-                          trailing: isConnecting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : OutlinedButton(
-                                  onPressed: () => _connect(device),
-                                  child: const Text('Appairer'),
-                                ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

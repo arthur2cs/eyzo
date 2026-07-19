@@ -40,15 +40,31 @@ class ConnectionStatusBadge extends ConsumerWidget {
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
             ),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
             if (state == BleConnectionState.connected && battery != null) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.battery_std, size: 14, color: AppColors.textSecondary),
+              const Icon(
+                Icons.battery_std,
+                size: 14,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(width: 2),
-              Text('$battery%', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              Text(
+                '$battery%',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
           ],
         ),

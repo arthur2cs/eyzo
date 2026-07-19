@@ -6,7 +6,7 @@ import '../../models/pixel_animation.dart';
 /// (utilisé par les animations prédéfinies, voir specs.md §4.3).
 class PixelCanvas {
   PixelCanvas(this.width, this.height, {int background = 0x0000})
-      : _pixels = List.filled(width * height, background);
+    : _pixels = List.filled(width * height, background);
 
   final int width;
   final int height;
@@ -58,7 +58,13 @@ PixelFrame frameFromBitmap(
     final row = rows[r];
     for (var c = 0; c < row.length; c++) {
       if (row[c] == '#') {
-        canvas.fillRect(offsetX + c * scale, offsetY + r * scale, scale, scale, fgRgb565);
+        canvas.fillRect(
+          offsetX + c * scale,
+          offsetY + r * scale,
+          scale,
+          scale,
+          fgRgb565,
+        );
       }
     }
   }

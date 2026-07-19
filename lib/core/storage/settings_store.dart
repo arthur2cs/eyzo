@@ -12,7 +12,10 @@ class SettingsStore {
   String? get lastDeviceId => _box.get(_lastDeviceIdKey) as String?;
   String? get lastDeviceName => _box.get(_lastDeviceNameKey) as String?;
 
-  Future<void> saveLastDevice({required String id, required String name}) async {
+  Future<void> saveLastDevice({
+    required String id,
+    required String name,
+  }) async {
     await _box.put(_lastDeviceIdKey, id);
     await _box.put(_lastDeviceNameKey, name);
   }

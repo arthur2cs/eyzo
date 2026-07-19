@@ -52,7 +52,10 @@ class AppTheme {
         ),
         margin: EdgeInsets.zero,
       ),
-      dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 1,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.textPrimary,
@@ -61,7 +64,9 @@ class AppTheme {
           disabledForegroundColor: AppColors.textSecondary,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
       ),
@@ -70,7 +75,9 @@ class AppTheme {
           foregroundColor: AppColors.textPrimary,
           side: const BorderSide(color: AppColors.border),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -101,10 +108,14 @@ class AppTheme {
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected) ? AppColors.textPrimary : AppColors.textSecondary,
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.textPrimary
+              : AppColors.textSecondary,
         ),
         trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected) ? AppColors.surfaceVariant : AppColors.surface,
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.surfaceVariant
+              : AppColors.surface,
         ),
       ),
       snackBarTheme: const SnackBarThemeData(

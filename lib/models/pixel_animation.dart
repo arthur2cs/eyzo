@@ -24,10 +24,10 @@ class PixelFrame {
   }
 
   PixelFrame copyWith({Uint8List? pixelsRgb565}) => PixelFrame(
-        width: width,
-        height: height,
-        pixelsRgb565: pixelsRgb565 ?? this.pixelsRgb565,
-      );
+    width: width,
+    height: height,
+    pixelsRgb565: pixelsRgb565 ?? this.pixelsRgb565,
+  );
 
   int getPixel(int x, int y) {
     final i = (y * width + x) * 2;
@@ -43,24 +43,21 @@ class PixelFrame {
   }
 
   Map<String, dynamic> toJson() => {
-        'width': width,
-        'height': height,
-        'pixels': base64Encode(pixelsRgb565),
-      };
+    'width': width,
+    'height': height,
+    'pixels': base64Encode(pixelsRgb565),
+  };
 
   factory PixelFrame.fromJson(Map<String, dynamic> json) => PixelFrame(
-        width: json['width'] as int,
-        height: json['height'] as int,
-        pixelsRgb565: base64Decode(json['pixels'] as String),
-      );
+    width: json['width'] as int,
+    height: json['height'] as int,
+    pixelsRgb565: base64Decode(json['pixels'] as String),
+  );
 }
 
 /// Animation multi-frames (éditeur pixel-art ou GIF importé).
 class PixelAnimation {
-  const PixelAnimation({
-    required this.frames,
-    this.frameDelayMs = 120,
-  });
+  const PixelAnimation({required this.frames, this.frameDelayMs = 120});
 
   final List<PixelFrame> frames;
   final int frameDelayMs;
@@ -68,20 +65,21 @@ class PixelAnimation {
   int get width => frames.isNotEmpty ? frames.first.width : 0;
   int get height => frames.isNotEmpty ? frames.first.height : 0;
 
-  PixelAnimation copyWith({List<PixelFrame>? frames, int? frameDelayMs}) => PixelAnimation(
+  PixelAnimation copyWith({List<PixelFrame>? frames, int? frameDelayMs}) =>
+      PixelAnimation(
         frames: frames ?? this.frames,
         frameDelayMs: frameDelayMs ?? this.frameDelayMs,
       );
 
   Map<String, dynamic> toJson() => {
-        'frameDelayMs': frameDelayMs,
-        'frames': frames.map((f) => f.toJson()).toList(),
-      };
+    'frameDelayMs': frameDelayMs,
+    'frames': frames.map((f) => f.toJson()).toList(),
+  };
 
   factory PixelAnimation.fromJson(Map<String, dynamic> json) => PixelAnimation(
-        frameDelayMs: json['frameDelayMs'] as int,
-        frames: (json['frames'] as List)
-            .map((f) => PixelFrame.fromJson(f as Map<String, dynamic>))
-            .toList(),
-      );
+    frameDelayMs: json['frameDelayMs'] as int,
+    frames: (json['frames'] as List)
+        .map((f) => PixelFrame.fromJson(f as Map<String, dynamic>))
+        .toList(),
+  );
 }

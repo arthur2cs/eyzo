@@ -43,23 +43,28 @@ class TextContent {
   }
 
   Map<String, dynamic> toJson() => {
-        'text': text,
-        'font': font.id,
-        'size': size,
-        'colorFg': colorFg.toARGB32(),
-        'colorBg': colorBg.toARGB32(),
-        'speed': speed,
-        'direction': direction.byte,
-      };
+    'text': text,
+    'font': font.id,
+    'size': size,
+    'colorFg': colorFg.toARGB32(),
+    'colorBg': colorBg.toARGB32(),
+    'speed': speed,
+    'direction': direction.byte,
+  };
 
   factory TextContent.fromJson(Map<String, dynamic> json) => TextContent(
-        text: json['text'] as String,
-        font: GlassesFont.values.firstWhere((f) => f.id == json['font'], orElse: () => GlassesFont.classic),
-        size: json['size'] as int,
-        colorFg: Color(json['colorFg'] as int),
-        colorBg: Color(json['colorBg'] as int),
-        speed: json['speed'] as int,
-        direction: ScrollDirectionMode.values
-            .firstWhere((d) => d.byte == json['direction'], orElse: () => ScrollDirectionMode.leftward),
-      );
+    text: json['text'] as String,
+    font: GlassesFont.values.firstWhere(
+      (f) => f.id == json['font'],
+      orElse: () => GlassesFont.classic,
+    ),
+    size: json['size'] as int,
+    colorFg: Color(json['colorFg'] as int),
+    colorBg: Color(json['colorBg'] as int),
+    speed: json['speed'] as int,
+    direction: ScrollDirectionMode.values.firstWhere(
+      (d) => d.byte == json['direction'],
+      orElse: () => ScrollDirectionMode.leftward,
+    ),
+  );
 }

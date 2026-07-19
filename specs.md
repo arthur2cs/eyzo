@@ -26,6 +26,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 - **Style** : minimaliste, sobre, épuré — pas de couleurs superflues dans l'UI de l'app (les sélecteurs de couleur pour le contenu envoyé aux lunettes restent en couleur, eux)
 - **Icône app** : panda mignon (asset fourni par l'utilisateur, à intégrer dans `assets/icon/`)
 - **Typographie** : simple, lisible, cohérente avec un look tech sobre
+- **Aperçu miroir** : les écrans de composition affichent les 2 verres côte à côte selon la convention "je vois ce que le porteur montre au public" — le verre **droit** du porteur est affiché à **gauche** dans l'app, le verre **gauche** du porteur à **droite** (vue miroir, comme se faire face)
 
 ## 4. Fonctionnalités
 
@@ -53,20 +54,18 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 - **Aperçu** dans l'app avant envoi (simulateur d'écran 240x320 miniature)
 - Bouton "Envoyer" + bouton "Ajouter aux favoris"
 
-### 4.3 Animations prédéfinies
+### 4.3 Import d'image / GIF
 
-- Bibliothèque d'animations intégrées à l'app (ex: cœur qui bat, yeux, smiley, etc.)
-- Sélection de l'écran cible (gauche / droit / les deux)
-- Aperçu animé avant envoi
-
-### 4.4 Import d'image / GIF
-
-- Import depuis la galerie du téléphone (image fixe ou GIF animé)
-- Redimensionnement/conversion automatique vers la résolution de travail (voir §4.5) avant transfert
-- Aperçu (recadrage si nécessaire) avant envoi
+- Import depuis la galerie du téléphone (image fixe ou GIF animé, y compris les GIF enregistrés depuis un clavier/une autre app dans la galerie)
+- **Insertion directe depuis la banque de GIF du clavier** (Gboard, etc.) : un champ dédié reçoit le GIF choisi dans le clavier via le mécanisme Android `commitContent`, exposé côté Flutter par `contentInsertionConfiguration` sur `TextField`
+  - Le clavier transmet soit les octets du GIF directement, soit une URI `content://` — dans ce second cas (le plus fréquent pour des GIF, plus volumineux), l'app lit l'URI via un petit pont natif Android (`MethodChannel` + `ContentResolver.openInputStream`, voir `MainActivity.kt`)
+  - Ne nécessite ni compte, ni clé API, ni connexion Internet côté app (le clavier gère lui-même le téléchargement/cache du GIF)
+  - ~~Recherche Tenor intégrée~~ abandonnée : Tenor n'accepte plus de nouveaux clients API depuis janvier 2026
+- Redimensionnement/conversion automatique vers la résolution de travail (voir §4.4) avant transfert
+- Aperçu double-verre (recadrage si nécessaire) avant envoi
 - Sélection de l'écran cible
 
-### 4.5 Éditeur pixel-art
+### 4.4 Éditeur pixel-art
 
 - Grille de dessin en **basse résolution** (ex: 32x42 ou 64x64, configurable) — l'app fait l'**upscale** (nearest-neighbor) pour remplir l'écran 240x320 réel, à la fois pour l'aperçu app et pour le rendu final sur les lunettes
 - Outils : pixel, ligne, remplissage (bucket), gomme, palette de couleurs
@@ -74,27 +73,26 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 - Aperçu animé en direct dans l'app
 - Sauvegarde en favoris, envoi vers écran gauche / droit / les deux
 
-### 4.6 Favoris & historique
+### 4.5 Favoris & historique
 
 - Bibliothèque locale de contenus sauvegardés (textes, animations importées/dessinées, images)
 - Réutilisation en un tap (renvoyer, dupliquer, éditer, supprimer)
 - Stockage **local uniquement** sur le téléphone (pas de compte, pas de cloud) — base de données locale embarquée (ex: Hive)
 
-### 4.7 Paramètres
+### 4.6 Paramètres
 
 - Gestion de l'appareil appairé (info, oublier, reconnecter)
 - À propos / version de l'app
 
 ## 5. Architecture applicative (écrans Flutter)
 
-1. **Accueil / Dashboard** — statut de connexion, batterie, accès rapide aux 4 modes de contenu, dernier contenu envoyé
+1. **Accueil / Dashboard** — statut de connexion, batterie, accès rapide aux 3 modes de contenu
 2. **Connexion** — scan BLE, appairage, gestion de l'appareil
-3. **Texte** — composition + réglages + aperçu + envoi
-4. **Animations** — bibliothèque de presets + aperçu + envoi
-5. **Import** — sélection galerie + aperçu/recadrage + envoi
-6. **Éditeur pixel-art** — canvas, outils, gestion de frames, aperçu, envoi
-7. **Favoris / Historique** — liste, actions rapides
-8. **Paramètres**
+3. **Texte** — composition + réglages + aperçu double-verre + envoi
+4. **Import** — sélection galerie/GIF + aperçu/recadrage + envoi
+5. **Éditeur pixel-art** — canvas, outils, gestion de frames, aperçu, envoi
+6. **Favoris / Historique** — liste, actions rapides
+7. **Paramètres**
 
 ## 6. Protocole de communication BLE (contrat App ↔ Firmware)
 
@@ -176,6 +174,7 @@ En-tête commun à chaque paquet (chunk) :
 - **State management** : Riverpod (proposition — à valider, ouvert à discussion)
 - **Stockage local** : Hive (favoris, historique, animations custom)
 - **Traitement image** : package `image` (redimensionnement, conversion RGB565), `image_picker` (import galerie/GIF)
+- **Banque de GIF externe** : insertion clavier via `contentInsertionConfiguration` (Flutter) + pont natif Android (`MethodChannel` Kotlin) pour la lecture des URI `content://`
 - **Icône d'app** : `flutter_launcher_icons` avec l'asset panda fourni
 
 ## 8. Roadmap proposée
@@ -186,8 +185,7 @@ En-tête commun à chaque paquet (chunk) :
 - Favoris (texte)
 
 **Phase 2**
-- Animations prédéfinies
-- Import image/GIF
+- Import image/GIF (galerie + banque externe)
 
 **Phase 3**
 - Éditeur pixel-art (multi-frames)
@@ -203,3 +201,6 @@ En-tête commun à chaque paquet (chunk) :
 - **Lecture batterie** : dépend d'un ajout matériel (pont diviseur) sur le XIAO ESP32S3, non garanti par défaut.
 - **Rendu texte sur écran** : le firmware devra embarquer les polices bitmap sélectionnables (font_id) — liste des polices à définir conjointement.
 - **Deux écrans SPI simultanés** : sujet firmware/hardware (bus SPI partagé ou non), sans impact direct sur l'app tant que le contrat `SCREEN` (gauche/droit/les deux) est respecté.
+- **Insertion GIF clavier** : dépend du clavier utilisé (Gboard le supporte via `commitContent` ; certains claviers tiers peuvent ne pas l'implémenter, auquel cas seul l'import galerie reste disponible). Comportement à valider sur plusieurs claviers/appareils réels.
+- **Refus ponctuel côté clavier** : le clavier peut, pour un GIF donné, décider lui-même (toast natif, hors contrôle de l'app) que l'insertion n'est pas supportée ici — la liste de types MIME acceptés a été élargie (`image/*` en plus des types explicites) pour limiter ces cas, mais un rejet natif du clavier ne peut pas toujours être intercepté côté app ; la galerie reste le filet de sécurité.
+- **Résolution plein écran (240x320) en import** : disponible en option, mais une animation multi-frames à cette résolution peut représenter plusieurs Mo à transférer en BLE — à utiliser avec parcimonie tant que le débit réel n'est pas mesuré (voir point ci-dessus sur le débit BLE).

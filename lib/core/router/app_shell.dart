@@ -37,7 +37,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Accueil'),
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Accueil',
+          ),
           NavigationDestination(
             icon: Icon(Icons.bookmark_outline),
             selectedIcon: Icon(Icons.bookmark),

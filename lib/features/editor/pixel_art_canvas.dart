@@ -33,7 +33,8 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
   (int, int)? _lineStart;
   (int, int)? _lineEnd;
 
-  int get _activeColor => widget.tool == EditorTool.eraser ? widget.eraseColor : widget.drawColor;
+  int get _activeColor =>
+      widget.tool == EditorTool.eraser ? widget.eraseColor : widget.drawColor;
 
   (int, int)? _cellFromLocalPosition(Offset local, Size size) {
     final cellW = size.width / widget.frame.width;
@@ -44,7 +45,9 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
   }
 
   void _paintAt((int, int) cell) {
-    widget.onFrameChanged(widget.frame.setPixel(cell.$1, cell.$2, _activeColor));
+    widget.onFrameChanged(
+      widget.frame.setPixel(cell.$1, cell.$2, _activeColor),
+    );
   }
 
   void _handleStart(Offset local, Size size) {
@@ -60,7 +63,9 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
           _lineEnd = cell;
         });
       case EditorTool.fill:
-        widget.onFrameChanged(floodFill(widget.frame, cell.$1, cell.$2, _activeColor));
+        widget.onFrameChanged(
+          floodFill(widget.frame, cell.$1, cell.$2, _activeColor),
+        );
     }
   }
 
@@ -79,9 +84,16 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
   }
 
   void _handleEnd() {
-    if (widget.tool == EditorTool.line && _lineStart != null && _lineEnd != null) {
+    if (widget.tool == EditorTool.line &&
+        _lineStart != null &&
+        _lineEnd != null) {
       var frame = widget.frame;
-      for (final (x, y) in bresenhamLine(_lineStart!.$1, _lineStart!.$2, _lineEnd!.$1, _lineEnd!.$2)) {
+      for (final (x, y) in bresenhamLine(
+        _lineStart!.$1,
+        _lineStart!.$2,
+        _lineEnd!.$1,
+        _lineEnd!.$2,
+      )) {
         frame = frame.setPixel(x, y, _activeColor);
       }
       widget.onFrameChanged(frame);
@@ -129,7 +141,12 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
 }
 
 class _CanvasPainter extends CustomPainter {
-  _CanvasPainter({required this.frame, required this.lineStart, required this.lineEnd, required this.previewColor});
+  _CanvasPainter({
+    required this.frame,
+    required this.lineStart,
+    required this.lineEnd,
+    required this.previewColor,
+  });
 
   final PixelFrame frame;
   final (int, int)? lineStart;
@@ -145,14 +162,20 @@ class _CanvasPainter extends CustomPainter {
     for (var y = 0; y < frame.height; y++) {
       for (var x = 0; x < frame.width; x++) {
         paint.color = rgb565ToColor(frame.getPixel(x, y));
-        canvas.drawRect(Rect.fromLTWH(x * cellW, y * cellH, cellW + 0.5, cellH + 0.5), paint);
+        canvas.drawRect(
+          Rect.fromLTWH(x * cellW, y * cellH, cellW + 0.5, cellH + 0.5),
+          paint,
+        );
       }
     }
 
     if (lineStart != null && lineEnd != null) {
       paint.color = rgb565ToColor(previewColor).withValues(alpha: 0.6);
       for (final (x, y) in _previewLine()) {
-        canvas.drawRect(Rect.fromLTWH(x * cellW, y * cellH, cellW + 0.5, cellH + 0.5), paint);
+        canvas.drawRect(
+          Rect.fromLTWH(x * cellW, y * cellH, cellW + 0.5, cellH + 0.5),
+          paint,
+        );
       }
     }
   }
@@ -185,5 +208,7 @@ class _CanvasPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CanvasPainter oldDelegate) =>
-      oldDelegate.frame != frame || oldDelegate.lineStart != lineStart || oldDelegate.lineEnd != lineEnd;
+      oldDelegate.frame != frame ||
+      oldDelegate.lineStart != lineStart ||
+      oldDelegate.lineEnd != lineEnd;
 }

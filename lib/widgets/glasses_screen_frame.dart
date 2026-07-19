@@ -4,7 +4,12 @@ import '../core/theme/app_theme.dart';
 
 /// Cadre simulant un écran des lunettes (ratio 240x320, voir specs.md §2).
 class GlassesScreenFrame extends StatelessWidget {
-  const GlassesScreenFrame({super.key, required this.child, this.width = 160, this.backgroundColor = Colors.black});
+  const GlassesScreenFrame({
+    super.key,
+    required this.child,
+    this.width = 160,
+    this.backgroundColor = Colors.black,
+  });
 
   final Widget child;
   final double width;

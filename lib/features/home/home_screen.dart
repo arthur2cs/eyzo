@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../widgets/connection_status_badge.dart';
-import '../animations/animations_screen.dart';
 import '../connection/connection_screen.dart';
 import '../editor/editor_screen.dart';
 import '../import_image/import_image_screen.dart';
@@ -30,34 +29,32 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
             _ModeCard(
               icon: Icons.text_fields,
               label: 'Texte défilant',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TextScreen())),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const TextScreen())),
             ),
-            _ModeCard(
-              icon: Icons.animation,
-              label: 'Animations',
-              onTap: () =>
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AnimationsScreen())),
-            ),
+            const SizedBox(height: 12),
             _ModeCard(
               icon: Icons.photo_library_outlined,
               label: 'Import image / GIF',
-              onTap: () =>
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImportImageScreen())),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ImportImageScreen()),
+              ),
             ),
+            const SizedBox(height: 12),
             _ModeCard(
               icon: Icons.brush_outlined,
               label: 'Éditeur pixel-art',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditorScreen())),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const EditorScreen())),
             ),
           ],
         ),
@@ -67,7 +64,11 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _ModeCard extends StatelessWidget {
-  const _ModeCard({required this.icon, required this.label, required this.onTap});
+  const _ModeCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -79,13 +80,24 @@ class _ModeCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 36, color: AppColors.textPrimary),
-            const SizedBox(height: 12),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          child: Row(
+            children: [
+              Icon(icon, size: 26, color: AppColors.textPrimary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
         ),
       ),
     );

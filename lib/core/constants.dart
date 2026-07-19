@@ -6,5 +6,13 @@ class EyzoGrid {
   static const int defaultWidth = 32;
   static const int defaultHeight = 42;
 
-  static const List<(int, int)> availableSizes = [(32, 42), (64, 84)];
+  /// Résolution native de l'écran ST7789V (voir specs.md §2) — disponible en option
+  /// pour l'import d'image/GIF, au prix d'un transfert BLE plus lent (voir specs.md §9).
+  static const (int, int) fullResolution = (240, 320);
+
+  static const List<(int, int)> availableSizes = [
+    (32, 42),
+    (64, 84),
+    fullResolution,
+  ];
 }

@@ -19,7 +19,11 @@ const List<Color> kGlassesPalette = [
 
 /// Sélecteur de couleur simplifié (palette RGB565-friendly) — voir specs.md §4.2.
 class ColorSwatchPicker extends StatelessWidget {
-  const ColorSwatchPicker({super.key, required this.value, required this.onChanged});
+  const ColorSwatchPicker({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
 
   final Color value;
   final ValueChanged<Color> onChanged;

@@ -45,10 +45,18 @@ PixelFrame _toPixelFrame(img.Image image) {
   for (var y = 0; y < image.height; y++) {
     for (var x = 0; x < image.width; x++) {
       final pixel = image.getPixel(x, y);
-      final rgb565 = rgbToRgb565(pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt());
+      final rgb565 = rgbToRgb565(
+        pixel.r.toInt(),
+        pixel.g.toInt(),
+        pixel.b.toInt(),
+      );
       pixels[i++] = (rgb565 >> 8) & 0xFF;
       pixels[i++] = rgb565 & 0xFF;
     }
   }
-  return PixelFrame(width: image.width, height: image.height, pixelsRgb565: pixels);
+  return PixelFrame(
+    width: image.width,
+    height: image.height,
+    pixelsRgb565: pixels,
+  );
 }

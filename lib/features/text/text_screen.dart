@@ -11,6 +11,8 @@ import '../../models/scroll_direction_mode.dart';
 import '../../models/target_screen.dart';
 import '../../models/text_content.dart';
 import '../../widgets/color_swatch_picker.dart';
+import '../../widgets/dual_lens_row.dart';
+import '../../widgets/lens_with_label.dart';
 import '../../widgets/save_favorite_dialog.dart';
 import '../../widgets/scrolling_text_preview.dart';
 import '../../widgets/target_screen_selector.dart';
@@ -47,11 +49,12 @@ class _TextScreenState extends ConsumerState<TextScreen> {
   }
 
   Future<void> _send() async {
-    final connected = ref.read(connectionStateProvider).value == BleConnectionState.connected;
+    final connected =
+        ref.read(connectionStateProvider).value == BleConnectionState.connected;
     if (!connected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lunettes non connectées.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lunettes non connectées.')));
       return;
     }
     if (_content.text.trim().isEmpty) return;
@@ -60,11 +63,15 @@ class _TextScreenState extends ConsumerState<TextScreen> {
     try {
       await ref.read(bleServiceProvider).sendText(_target, _content);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Texte envoyé.')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Texte envoyé.')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Échec de l\'envoi : $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Échec de l\'envoi : $e')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -73,9 +80,14 @@ class _TextScreenState extends ConsumerState<TextScreen> {
 
   Future<void> _saveFavorite() async {
     if (_content.text.trim().isEmpty) return;
-    final name = await showSaveFavoriteDialog(context, initialName: _content.text);
+    final name = await showSaveFavoriteDialog(
+      context,
+      initialName: _content.text,
+    );
     if (name == null || name.isEmpty) return;
-    await ref.read(favoritesProvider.notifier).add(
+    await ref
+        .read(favoritesProvider.notifier)
+        .add(
           FavoriteItem(
             id: const Uuid().v4(),
             name: name,
@@ -86,7 +98,9 @@ class _TextScreenState extends ConsumerState<TextScreen> {
           ),
         );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajouté aux favoris.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ajouté aux favoris.')));
     }
   }
 
@@ -96,97 +110,159 @@ class _TextScreenState extends ConsumerState<TextScreen> {
       appBar: AppBar(
         title: const Text('Texte défilant'),
         actions: [
-          IconButton(onPressed: _saveFavorite, icon: const Icon(Icons.bookmark_add_outlined)),
+          IconButton(
+            onPressed: _saveFavorite,
+            icon: const Icon(Icons.bookmark_add_outlined),
+          ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Center(child: ScrollingTextPreview(content: _content, width: 180)),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _textController,
-            maxLength: 200,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Message', hintText: 'Votre texte…'),
-          ),
-          const SizedBox(height: 16),
-          const Text('Écran cible', style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          TargetScreenSelector(value: _target, onChanged: (v) => setState(() => _target = v)),
-          const SizedBox(height: 24),
-          const Text('Vitesse de défilement', style: TextStyle(color: AppColors.textSecondary)),
-          Slider(
-            value: _content.speed.toDouble(),
-            min: 1,
-            max: 10,
-            divisions: 9,
-            label: '${_content.speed}',
-            onChanged: (v) => setState(() => _content = _content.copyWith(speed: v.round())),
-          ),
-          const SizedBox(height: 8),
-          const Text('Taille du texte', style: TextStyle(color: AppColors.textSecondary)),
-          Slider(
-            value: _content.size.toDouble(),
-            min: 1,
-            max: 5,
-            divisions: 4,
-            label: '${_content.size}',
-            onChanged: (v) => setState(() => _content = _content.copyWith(size: v.round())),
-          ),
-          const SizedBox(height: 16),
-          const Text('Direction / mode', style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: ScrollDirectionMode.values.map((mode) {
-              return ChoiceChip(
-                label: Text(mode.label),
-                selected: _content.direction == mode,
-                onSelected: (_) => setState(() => _content = _content.copyWith(direction: mode)),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          const Text('Police', style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: GlassesFont.values.map((font) {
-              return ChoiceChip(
-                label: Text(font.label),
-                selected: _content.font == font,
-                onSelected: (_) => setState(() => _content = _content.copyWith(font: font)),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 24),
-          const Text('Couleur du texte', style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          ColorSwatchPicker(
-            value: _content.colorFg,
-            onChanged: (c) => setState(() => _content = _content.copyWith(colorFg: c)),
-          ),
-          const SizedBox(height: 16),
-          const Text('Couleur de fond', style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          ColorSwatchPicker(
-            value: _content.colorBg,
-            onChanged: (c) => setState(() => _content = _content.copyWith(colorBg: c)),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _sending ? null : _send,
-            icon: _sending
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.background),
-                  )
-                : const Icon(Icons.send),
-            label: Text(_sending ? 'Envoi…' : 'Envoyer aux lunettes'),
-          ),
-        ],
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            Center(
+              child: DualLensRow(
+                rightLens: LensWithLabel(
+                  label: 'Droite',
+                  lens: ScrollingTextPreview(
+                    content: _content,
+                    width: 130,
+                    active: _target.showsRight,
+                  ),
+                ),
+                leftLens: LensWithLabel(
+                  label: 'Gauche',
+                  lens: ScrollingTextPreview(
+                    content: _content,
+                    width: 130,
+                    active: _target.showsLeft,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _textController,
+              maxLength: 200,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Message',
+                hintText: 'Votre texte…',
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Écran cible',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            TargetScreenSelector(
+              value: _target,
+              onChanged: (v) => setState(() => _target = v),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Vitesse de défilement',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            Slider(
+              value: _content.speed.toDouble(),
+              min: 1,
+              max: 10,
+              divisions: 9,
+              label: '${_content.speed}',
+              onChanged: (v) => setState(
+                () => _content = _content.copyWith(speed: v.round()),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Taille du texte',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            Slider(
+              value: _content.size.toDouble(),
+              min: 1,
+              max: 5,
+              divisions: 4,
+              label: '${_content.size}',
+              onChanged: (v) =>
+                  setState(() => _content = _content.copyWith(size: v.round())),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Direction / mode',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: ScrollDirectionMode.values.map((mode) {
+                return ChoiceChip(
+                  label: Text(mode.label),
+                  selected: _content.direction == mode,
+                  onSelected: (_) => setState(
+                    () => _content = _content.copyWith(direction: mode),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Police',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: GlassesFont.values.map((font) {
+                return ChoiceChip(
+                  label: Text(font.label),
+                  selected: _content.font == font,
+                  onSelected: (_) =>
+                      setState(() => _content = _content.copyWith(font: font)),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Couleur du texte',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            ColorSwatchPicker(
+              value: _content.colorFg,
+              onChanged: (c) =>
+                  setState(() => _content = _content.copyWith(colorFg: c)),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Couleur de fond',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            ColorSwatchPicker(
+              value: _content.colorBg,
+              onChanged: (c) =>
+                  setState(() => _content = _content.copyWith(colorBg: c)),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _sending ? null : _send,
+              icon: _sending
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.background,
+                      ),
+                    )
+                  : const Icon(Icons.send),
+              label: Text(_sending ? 'Envoi…' : 'Envoyer aux lunettes'),
+            ),
+          ],
+        ),
       ),
     );
   }

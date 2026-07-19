@@ -23,12 +23,25 @@ class EyzoPacketBuilder {
     final textBytes = utf8.encode(content.text);
     payload.add(_uint16le(textBytes.length));
     payload.add(textBytes);
-    return _chunk(cmd: EyzoProtocol.cmdSetText, screen: screen, payload: payload.toBytes());
+    return _chunk(
+      cmd: EyzoProtocol.cmdSetText,
+      screen: screen,
+      payload: payload.toBytes(),
+    );
   }
 
   static List<Uint8List> setStaticImage(TargetScreen screen, PixelFrame frame) {
-    final payload = _imagePayload(frame: frame, frameIndex: 0, totalFrames: 1, frameDelayMs: 0);
-    return _chunk(cmd: EyzoProtocol.cmdSetStaticImage, screen: screen, payload: payload);
+    final payload = _imagePayload(
+      frame: frame,
+      frameIndex: 0,
+      totalFrames: 1,
+      frameDelayMs: 0,
+    );
+    return _chunk(
+      cmd: EyzoProtocol.cmdSetStaticImage,
+      screen: screen,
+      payload: payload,
+    );
   }
 
   static List<Uint8List> _setAnimationFrame(
@@ -44,11 +57,18 @@ class EyzoPacketBuilder {
       totalFrames: totalFrames,
       frameDelayMs: frameDelayMs,
     );
-    return _chunk(cmd: EyzoProtocol.cmdSetAnimationFrame, screen: screen, payload: payload);
+    return _chunk(
+      cmd: EyzoProtocol.cmdSetAnimationFrame,
+      screen: screen,
+      payload: payload,
+    );
   }
 
   /// Une entrée de la liste retournée = l'ensemble des chunks BLE d'une frame de l'animation.
-  static List<List<Uint8List>> setAnimation(TargetScreen screen, PixelAnimation animation) {
+  static List<List<Uint8List>> setAnimation(
+    TargetScreen screen,
+    PixelAnimation animation,
+  ) {
     return [
       for (var i = 0; i < animation.frames.length; i++)
         _setAnimationFrame(
@@ -61,14 +81,23 @@ class EyzoPacketBuilder {
     ];
   }
 
-  static Uint8List clearScreen(TargetScreen screen) =>
-      _chunk(cmd: EyzoProtocol.cmdClearScreen, screen: screen, payload: Uint8List(0)).first;
+  static Uint8List clearScreen(TargetScreen screen) => _chunk(
+    cmd: EyzoProtocol.cmdClearScreen,
+    screen: screen,
+    payload: Uint8List(0),
+  ).first;
 
-  static Uint8List ping() =>
-      _chunk(cmd: EyzoProtocol.cmdPing, screen: TargetScreen.both, payload: Uint8List(0)).first;
+  static Uint8List ping() => _chunk(
+    cmd: EyzoProtocol.cmdPing,
+    screen: TargetScreen.both,
+    payload: Uint8List(0),
+  ).first;
 
-  static Uint8List getStatus() =>
-      _chunk(cmd: EyzoProtocol.cmdGetStatus, screen: TargetScreen.both, payload: Uint8List(0)).first;
+  static Uint8List getStatus() => _chunk(
+    cmd: EyzoProtocol.cmdGetStatus,
+    screen: TargetScreen.both,
+    payload: Uint8List(0),
+  ).first;
 
   static Uint8List _imagePayload({
     required PixelFrame frame,
@@ -93,7 +122,9 @@ class EyzoPacketBuilder {
     required Uint8List payload,
   }) {
     final chunks = <Uint8List>[];
-    final totalChunks = payload.isEmpty ? 1 : (payload.length / EyzoProtocol.maxChunkPayload).ceil();
+    final totalChunks = payload.isEmpty
+        ? 1
+        : (payload.length / EyzoProtocol.maxChunkPayload).ceil();
 
     for (var i = 0; i < totalChunks; i++) {
       final start = i * EyzoProtocol.maxChunkPayload;
