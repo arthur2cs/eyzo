@@ -9,8 +9,9 @@ import 'lens_with_label.dart';
 
 /// Aperçu du mode "Séquentiel" (texte uniquement, voir specs.md §4.2/§6.3) :
 /// les 2 écrans forment une seule bande de défilement continue. L'écran de
-/// départ dépend de la direction — en défilement "←" le texte entre par
-/// l'écran Droit et sort par l'écran Gauche ; en "→" c'est l'inverse.
+/// départ dépend de la direction — en défilement "←" (mouvement visuel
+/// droite→gauche sur le téléphone) le texte entre par l'écran Gauche et
+/// sort par l'écran Droit ; en "→" c'est l'inverse.
 /// Pour les modes statique/clignotant (sans déplacement), les 2 écrans
 /// affichent simplement le même contenu (équivalent à "Simultané").
 class SequentialTextPreview extends StatefulWidget {
@@ -37,8 +38,10 @@ class _SequentialTextPreviewState extends State<SequentialTextPreview>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    )..repeat();
+    );
+    _controller.addStatusListener(_loopAnimation);
     _recomputeDuration();
+    _controller.forward();
   }
 
   @override
@@ -47,8 +50,18 @@ class _SequentialTextPreviewState extends State<SequentialTextPreview>
     _recomputeDuration();
   }
 
+  // Voir ScrollingTextPreview._loopAnimation : repeat() figerait la durée de
+  // la simulation au premier appel, empêchant la vitesse de défilement d'avoir
+  // un effet visible une fois l'animation démarrée.
+  void _loopAnimation(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _controller.forward(from: 0);
+    }
+  }
+
   @override
   void dispose() {
+    _controller.removeStatusListener(_loopAnimation);
     _controller.dispose();
     super.dispose();
   }
@@ -105,9 +118,13 @@ class _SequentialTextPreviewState extends State<SequentialTextPreview>
               // Voir ScrollingTextPreview : sans OverflowBox, le texte serait
               // tronqué à la largeur de la fenêtre avant même d'être translaté,
               // ce qui l'empêcherait de "continuer" visuellement sur l'autre écran.
+              // minHeight: 0 est nécessaire pour que l'alignement centre vraiment
+              // le texte verticalement (sinon la contrainte de hauteur reste
+              // "tight" et le texte est étiré en haut du cadre).
               child: OverflowBox(
                 minWidth: 0,
                 maxWidth: double.infinity,
+                minHeight: 0,
                 alignment: Alignment.centerLeft,
                 child: child,
               ),
@@ -153,9 +170,13 @@ class _SequentialTextPreviewState extends State<SequentialTextPreview>
         widget.content.direction == ScrollDirectionMode.leftward ||
         widget.content.direction == ScrollDirectionMode.rightward;
 
-    // Bande combinée en ordre porteur : [Gauche : 0..lensWidth) puis [Droit : lensWidth..2*lensWidth).
-    final gaucheLens = travels ? _window(0) : _staticOrBlinkWindow();
-    final droitLens = travels
+    // Bande combinée alignée sur l'affichage app (miroir) : [Droit : 0..lensWidth)
+    // à gauche de l'app, puis [Gauche : lensWidth..2*lensWidth) à droite de l'app —
+    // la jointure entre les 2 tranches tombe ainsi exactement sur le connecteur
+    // visuel entre les 2 verres (voir DualLensRow), sans quoi le texte "sauterait"
+    // d'un bord extérieur à l'autre au lieu de continuer d'un écran à l'autre.
+    final droitLens = travels ? _window(0) : _staticOrBlinkWindow();
+    final gaucheLens = travels
         ? _window(widget.lensWidth)
         : _staticOrBlinkWindow();
 

@@ -15,6 +15,7 @@ import '../../models/favorite_item.dart';
 import '../../models/pixel_animation.dart';
 import '../../models/target_screen.dart';
 import '../../widgets/dual_lens_row.dart';
+import '../../widgets/glasses_screen_frame.dart';
 import '../../widgets/lens_with_label.dart';
 import '../../widgets/pixel_animation_preview.dart';
 import '../../widgets/save_favorite_dialog.dart';
@@ -146,14 +147,9 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
   }
 
   Widget _emptyLens() {
-    return Container(
+    return GlassesScreenFrame(
       width: 130,
-      height: 130 * 320 / 240,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
+      backgroundColor: AppColors.surface,
       child: const Center(
         child: Icon(
           Icons.image_outlined,

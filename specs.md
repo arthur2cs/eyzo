@@ -27,6 +27,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 - **Icône app** : panda mignon (asset fourni par l'utilisateur, à intégrer dans `assets/icon/`)
 - **Typographie** : simple, lisible, cohérente avec un look tech sobre
 - **Aperçu miroir** : les écrans de composition affichent les 2 verres côte à côte selon la convention "je vois ce que le porteur montre au public" — le verre **droit** du porteur est affiché à **gauche** dans l'app, le verre **gauche** du porteur à **droite** (vue miroir, comme se faire face)
+- **Format des cadres d'aperçu** : dessinés au ratio **3:2** (plus large que haut) pour un rendu visuellement plus proche d'un vrai petit écran de lunettes que le ratio natif 3:4 du panneau ST7789V (240x320) — un choix esthétique côté app, sans lien avec la résolution réelle des données envoyées (voir §6.3)
 
 ## 4. Fonctionnalités
 
@@ -47,7 +48,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 - Champ de saisie de texte, mode **"écrire puis envoyer"** (pas de live typing)
 - Sélection de l'écran cible : **Gauche / Droit / Simultané / Séquentiel**
   - Gauche, Droit, Simultané : contenu identique ou indépendant sur chaque écran (comme pour les autres modes de contenu, voir §6.2)
-  - **Séquentiel (texte uniquement)** : les 2 écrans forment une seule bande de défilement continue — le texte part d'un écran et continue sur l'autre. L'écran de départ dépend de la direction : en défilement "←" le texte entre par l'écran Droit et sort par l'écran Gauche ; en "→" c'est l'inverse (voir §6.3 pour le détail protocole). Sans effet particulier en mode statique/clignotant (équivalent à Simultané dans ce cas).
+  - **Séquentiel (texte uniquement)** : les 2 écrans forment une seule bande de défilement continue — le texte part d'un écran et continue sur l'autre. L'écran de départ dépend de la direction : en défilement "←" le texte entre par l'écran Gauche et sort par l'écran Droit ; en "→" c'est l'inverse (voir §6.3 pour le détail protocole). Sans effet particulier en mode statique/clignotant (équivalent à Simultané dans ce cas).
 - Réglages disponibles :
   - **Vitesse de défilement** (slider)
   - **Couleur du texte et couleur de fond** (color picker, rendu RGB565 sur les écrans)
@@ -152,8 +153,8 @@ En-tête commun à chaque paquet (chunk) :
 | N | texte UTF-8 |
 
 **Mode séquentiel (`SCREEN = 0x03`, `SET_TEXT` uniquement)** : les 2 écrans sont traités par le firmware comme une seule bande de défilement continue (largeur virtuelle = 2x la largeur d'un écran), au lieu de dupliquer le même texte sur chaque écran indépendamment. L'écran de départ dépend du champ `direction` de ce même payload :
-- `direction = 0` (défilement ←) : le texte entre par l'écran **Droit** et sort par l'écran **Gauche**.
-- `direction = 1` (défilement →) : le texte entre par l'écran **Gauche** et sort par l'écran **Droit**.
+- `direction = 0` (défilement ←) : le texte entre par l'écran **Gauche** et sort par l'écran **Droit**.
+- `direction = 1` (défilement →) : le texte entre par l'écran **Droit** et sort par l'écran **Gauche**.
 - `direction = 2` (statique) ou `3` (clignotant) : pas de déplacement possible entre écrans — le firmware doit traiter `SCREEN = 0x03` comme équivalent à `0x02` (simultané) dans ce cas.
 
 `SCREEN = 0x03` n'est pas utilisé par `SET_STATIC_IMAGE` / `SET_ANIMATION_FRAME` (non exposé côté app pour ces commandes) ; comportement non défini si reçu par le firmware pour ces commandes.

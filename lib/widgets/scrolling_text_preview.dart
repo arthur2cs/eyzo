@@ -36,8 +36,10 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    )..repeat();
+    );
+    _controller.addStatusListener(_loopAnimation);
     _recomputeDuration();
+    _controller.forward();
   }
 
   @override
@@ -46,8 +48,19 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
     _recomputeDuration();
   }
 
+  // AnimationController.repeat() fige la durée de la simulation au moment de
+  // l'appel : changer `duration` en cours de route (ex. via le slider de
+  // vitesse) n'aurait alors aucun effet visible. En relançant nous-mêmes
+  // `forward()` à chaque cycle, la durée à jour est relue à chaque boucle.
+  void _loopAnimation(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _controller.forward(from: 0);
+    }
+  }
+
   @override
   void dispose() {
+    _controller.removeStatusListener(_loopAnimation);
     _controller.dispose();
     super.dispose();
   }
@@ -148,9 +161,14 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
                   // OverflowBox laisse le texte se dessiner à sa largeur naturelle
                   // (même plus large que le cadre visible) : sans ça, il serait
                   // tronqué à la largeur du cadre avant même d'être translaté.
+                  // minHeight: 0 est indispensable pour que l'alignement centre
+                  // réellement le texte : sans lui, la contrainte de hauteur reçue
+                  // reste "tight" (= hauteur du cadre) et le texte est étiré en
+                  // haut du cadre au lieu d'être centré.
                   child: OverflowBox(
                     minWidth: 0,
                     maxWidth: double.infinity,
+                    minHeight: 0,
                     alignment: Alignment.centerLeft,
                     child: child,
                   ),

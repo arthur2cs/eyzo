@@ -155,14 +155,16 @@ class _TextScreenState extends ConsumerState<TextScreen> {
               options: TargetScreen.values,
             ),
             const SizedBox(height: 24),
+            const Text(
+              'Message',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _textController,
               maxLength: 200,
               maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Message',
-                hintText: 'Votre texte…',
-              ),
+              decoration: const InputDecoration(hintText: 'Votre texte…'),
             ),
             const SizedBox(height: 16),
             const Text(
