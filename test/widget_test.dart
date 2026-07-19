@@ -28,7 +28,10 @@ void main() {
 
   test('un payload volumineux est découpé en plusieurs chunks numérotés', () {
     final longText = 'A' * 400;
-    final chunks = EyzoPacketBuilder.setText(TargetScreen.both, TextContent(text: longText));
+    final chunks = EyzoPacketBuilder.setText(
+      TargetScreen.simultaneous,
+      TextContent(text: longText),
+    );
 
     expect(chunks.length, greaterThan(1));
     for (var i = 0; i < chunks.length; i++) {

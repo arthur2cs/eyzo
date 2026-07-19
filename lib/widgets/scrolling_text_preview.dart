@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/utils/text_measure.dart';
 import '../models/scroll_direction_mode.dart';
 import '../models/text_content.dart';
 import 'glasses_screen_frame.dart';
@@ -36,13 +37,13 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
+    _recomputeDuration();
   }
 
   @override
   void didUpdateWidget(covariant ScrollingTextPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final speed = widget.content.speed.clamp(1, 10);
-    _controller.duration = Duration(milliseconds: (5500 - speed * 450).round());
+    _recomputeDuration();
   }
 
   @override
@@ -52,6 +53,30 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
   }
 
   double get _fontSize => 12.0 + widget.content.size * 4.0;
+
+  TextStyle get _textStyle => TextStyle(
+    color: widget.content.colorFg,
+    fontSize: _fontSize,
+    fontWeight: widget.content.font == GlassesFont.bold
+        ? FontWeight.bold
+        : FontWeight.normal,
+    fontFamily: widget.content.font.label == 'Mono' ? 'monospace' : null,
+  );
+
+  String get _displayText =>
+      widget.content.text.isEmpty ? 'Aperçu…' : widget.content.text;
+
+  /// Vitesse cible en px/s (échelle 1-10) — la durée du cycle est déduite de la
+  /// distance réelle à parcourir pour que le texte défile à une vitesse à peu
+  /// près constante, quelle que soit sa longueur (voir specs.md §4.2).
+  void _recomputeDuration() {
+    final speed = widget.content.speed.clamp(1, 10);
+    final pxPerSecond = 30.0 + speed * 25.0;
+    final textWidth = measureTextWidth(_displayText, _textStyle);
+    final travel = widget.width + textWidth;
+    final ms = (travel / pxPerSecond * 1000).clamp(400, 20000).round();
+    _controller.duration = Duration(milliseconds: ms);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,18 +95,9 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
     }
 
     final content = widget.content;
-    final textStyle = TextStyle(
-      color: content.colorFg,
-      fontSize: _fontSize,
-      fontWeight: content.font == GlassesFont.bold
-          ? FontWeight.bold
-          : FontWeight.normal,
-      fontFamily: content.font.label == 'Mono' ? 'monospace' : null,
-    );
-
-    Widget textWidget = Text(
-      content.text.isEmpty ? 'Aperçu…' : content.text,
-      style: textStyle,
+    final textWidget = Text(
+      _displayText,
+      style: _textStyle,
       maxLines: 1,
       softWrap: false,
     );
@@ -117,6 +133,7 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
       case ScrollDirectionMode.leftward:
       case ScrollDirectionMode.rightward:
         final reverse = content.direction == ScrollDirectionMode.rightward;
+        final textWidth = measureTextWidth(_displayText, _textStyle);
         return GlassesScreenFrame(
           width: widget.width,
           backgroundColor: content.colorBg,
@@ -125,10 +142,18 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
               animation: _controller,
               builder: (context, child) {
                 final t = reverse ? 1 - _controller.value : _controller.value;
-                final dx = widget.width - (t * (widget.width * 2 + 200));
+                final pos = widget.width - t * (widget.width + textWidth);
                 return Transform.translate(
-                  offset: Offset(dx + widget.width, 0),
-                  child: Align(alignment: Alignment.centerLeft, child: child),
+                  offset: Offset(pos, 0),
+                  // OverflowBox laisse le texte se dessiner à sa largeur naturelle
+                  // (même plus large que le cadre visible) : sans ça, il serait
+                  // tronqué à la largeur du cadre avant même d'être translaté.
+                  child: OverflowBox(
+                    minWidth: 0,
+                    maxWidth: double.infinity,
+                    alignment: Alignment.centerLeft,
+                    child: child,
+                  ),
                 );
               },
               child: Padding(

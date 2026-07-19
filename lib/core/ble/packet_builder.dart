@@ -89,13 +89,13 @@ class EyzoPacketBuilder {
 
   static Uint8List ping() => _chunk(
     cmd: EyzoProtocol.cmdPing,
-    screen: TargetScreen.both,
+    screen: TargetScreen.simultaneous,
     payload: Uint8List(0),
   ).first;
 
   static Uint8List getStatus() => _chunk(
     cmd: EyzoProtocol.cmdGetStatus,
-    screen: TargetScreen.both,
+    screen: TargetScreen.simultaneous,
     payload: Uint8List(0),
   ).first;
 

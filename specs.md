@@ -45,13 +45,15 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 ### 4.2 Texte défilant
 
 - Champ de saisie de texte, mode **"écrire puis envoyer"** (pas de live typing)
-- Sélection de l'écran cible : gauche / droit / les deux (contenu identique ou indépendant sur chaque écran)
+- Sélection de l'écran cible : **Gauche / Droit / Simultané / Séquentiel**
+  - Gauche, Droit, Simultané : contenu identique ou indépendant sur chaque écran (comme pour les autres modes de contenu, voir §6.2)
+  - **Séquentiel (texte uniquement)** : les 2 écrans forment une seule bande de défilement continue — le texte part d'un écran et continue sur l'autre. L'écran de départ dépend de la direction : en défilement "←" le texte entre par l'écran Droit et sort par l'écran Gauche ; en "→" c'est l'inverse (voir §6.3 pour le détail protocole). Sans effet particulier en mode statique/clignotant (équivalent à Simultané dans ce cas).
 - Réglages disponibles :
   - **Vitesse de défilement** (slider)
   - **Couleur du texte et couleur de fond** (color picker, rendu RGB565 sur les écrans)
   - **Police et taille de caractère** (liste de polices bitmap embarquées côté firmware, sélection par id)
   - **Direction / mode** : défilement gauche→droite, droite→gauche, statique, clignotant
-- **Aperçu** dans l'app avant envoi (simulateur d'écran 240x320 miniature)
+- **Aperçu double-verre** dans l'app avant envoi, y compris pour le mode Séquentiel (simulateur des 2 écrans 240x320 miniatures, voir §3)
 - Bouton "Envoyer" + bouton "Ajouter aux favoris"
 
 ### 4.3 Import d'image / GIF
@@ -71,7 +73,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 - Outils : pixel, ligne, remplissage (bucket), gomme, palette de couleurs
 - Gestion multi-frames : ajouter / dupliquer / supprimer une frame, réglage du délai entre frames (animation image par image)
 - Aperçu animé en direct dans l'app
-- Sauvegarde en favoris, envoi vers écran gauche / droit / les deux
+- Sauvegarde en favoris, envoi vers écran gauche / droit / simultané
 
 ### 4.5 Favoris & historique
 
@@ -118,7 +120,7 @@ En-tête commun à chaque paquet (chunk) :
 |---|---|---|
 | 1 | `SOF` | Marqueur de début, `0xAA` |
 | 1 | `CMD` | Identifiant de commande (voir §6.3) |
-| 1 | `SCREEN` | Écran cible : `0x00` gauche, `0x01` droit, `0x02` les deux |
+| 1 | `SCREEN` | Écran cible : `0x00` gauche, `0x01` droit, `0x02` simultané, `0x03` séquentiel (texte uniquement, voir §6.3) |
 | 2 | `SEQ` | Index du chunk courant (uint16 LE) |
 | 2 | `TOTAL` | Nombre total de chunks pour ce contenu (uint16 LE) |
 | 2 | `LEN` | Longueur du payload dans ce chunk (uint16 LE) |
@@ -148,6 +150,13 @@ En-tête commun à chaque paquet (chunk) :
 | 1 | `direction` (0=gauche, 1=droite, 2=statique, 3=clignotant) |
 | 2 | `text_len` (uint16 LE) |
 | N | texte UTF-8 |
+
+**Mode séquentiel (`SCREEN = 0x03`, `SET_TEXT` uniquement)** : les 2 écrans sont traités par le firmware comme une seule bande de défilement continue (largeur virtuelle = 2x la largeur d'un écran), au lieu de dupliquer le même texte sur chaque écran indépendamment. L'écran de départ dépend du champ `direction` de ce même payload :
+- `direction = 0` (défilement ←) : le texte entre par l'écran **Droit** et sort par l'écran **Gauche**.
+- `direction = 1` (défilement →) : le texte entre par l'écran **Gauche** et sort par l'écran **Droit**.
+- `direction = 2` (statique) ou `3` (clignotant) : pas de déplacement possible entre écrans — le firmware doit traiter `SCREEN = 0x03` comme équivalent à `0x02` (simultané) dans ce cas.
+
+`SCREEN = 0x03` n'est pas utilisé par `SET_STATIC_IMAGE` / `SET_ANIMATION_FRAME` (non exposé côté app pour ces commandes) ; comportement non défini si reçu par le firmware pour ces commandes.
 
 #### Payload `SET_STATIC_IMAGE` / `SET_ANIMATION_FRAME`
 
@@ -200,7 +209,8 @@ En-tête commun à chaque paquet (chunk) :
 - **Débit BLE** : à mesurer en conditions réelles pour calibrer la résolution max de travail de l'éditeur/import (32x42, 64x64, ou plus) sans dégrader l'expérience (temps d'envoi trop long).
 - **Lecture batterie** : dépend d'un ajout matériel (pont diviseur) sur le XIAO ESP32S3, non garanti par défaut.
 - **Rendu texte sur écran** : le firmware devra embarquer les polices bitmap sélectionnables (font_id) — liste des polices à définir conjointement.
-- **Deux écrans SPI simultanés** : sujet firmware/hardware (bus SPI partagé ou non), sans impact direct sur l'app tant que le contrat `SCREEN` (gauche/droit/les deux) est respecté.
+- **Deux écrans SPI simultanés** : sujet firmware/hardware (bus SPI partagé ou non), sans impact direct sur l'app tant que le contrat `SCREEN` (gauche/droit/simultané/séquentiel) est respecté.
+- **Mode séquentiel** : la convention départ/arrivée selon la direction (voir §6.3) est un choix documenté côté app, à valider/ajuster une fois le rendu réel testé sur le firmware — c'est le firmware qui implémente concrètement le rendu "bande continue" à travers les 2 écrans.
 - **Insertion GIF clavier** : dépend du clavier utilisé (Gboard le supporte via `commitContent` ; certains claviers tiers peuvent ne pas l'implémenter, auquel cas seul l'import galerie reste disponible). Comportement à valider sur plusieurs claviers/appareils réels.
 - **Refus ponctuel côté clavier** : le clavier peut, pour un GIF donné, décider lui-même (toast natif, hors contrôle de l'app) que l'insertion n'est pas supportée ici — la liste de types MIME acceptés a été élargie (`image/*` en plus des types explicites) pour limiter ces cas, mais un rejet natif du clavier ne peut pas toujours être intercepté côté app ; la galerie reste le filet de sécurité.
 - **Résolution plein écran (240x320) en import** : disponible en option, mais une animation multi-frames à cette résolution peut représenter plusieurs Mo à transférer en BLE — à utiliser avec parcimonie tant que le débit réel n'est pas mesuré (voir point ci-dessus sur le débit BLE).

@@ -15,6 +15,7 @@ import '../../widgets/dual_lens_row.dart';
 import '../../widgets/lens_with_label.dart';
 import '../../widgets/save_favorite_dialog.dart';
 import '../../widgets/scrolling_text_preview.dart';
+import '../../widgets/sequential_text_preview.dart';
 import '../../widgets/target_screen_selector.dart';
 
 class TextScreen extends ConsumerStatefulWidget {
@@ -29,7 +30,7 @@ class TextScreen extends ConsumerStatefulWidget {
 class _TextScreenState extends ConsumerState<TextScreen> {
   late final TextEditingController _textController;
   late TextContent _content;
-  TargetScreen _target = TargetScreen.both;
+  TargetScreen _target = TargetScreen.simultaneous;
   bool _sending = false;
 
   @override
@@ -121,24 +122,37 @@ class _TextScreenState extends ConsumerState<TextScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
             Center(
-              child: DualLensRow(
-                rightLens: LensWithLabel(
-                  label: 'Droite',
-                  lens: ScrollingTextPreview(
-                    content: _content,
-                    width: 130,
-                    active: _target.showsRight,
-                  ),
-                ),
-                leftLens: LensWithLabel(
-                  label: 'Gauche',
-                  lens: ScrollingTextPreview(
-                    content: _content,
-                    width: 130,
-                    active: _target.showsLeft,
-                  ),
-                ),
-              ),
+              child: _target == TargetScreen.sequential
+                  ? SequentialTextPreview(content: _content, lensWidth: 130)
+                  : DualLensRow(
+                      rightLens: LensWithLabel(
+                        label: 'Droite',
+                        lens: ScrollingTextPreview(
+                          content: _content,
+                          width: 130,
+                          active: _target.showsRight,
+                        ),
+                      ),
+                      leftLens: LensWithLabel(
+                        label: 'Gauche',
+                        lens: ScrollingTextPreview(
+                          content: _content,
+                          width: 130,
+                          active: _target.showsLeft,
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Écran cible',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            TargetScreenSelector(
+              value: _target,
+              onChanged: (v) => setState(() => _target = v),
+              options: TargetScreen.values,
             ),
             const SizedBox(height: 24),
             TextField(
@@ -151,16 +165,6 @@ class _TextScreenState extends ConsumerState<TextScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Écran cible',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            TargetScreenSelector(
-              value: _target,
-              onChanged: (v) => setState(() => _target = v),
-            ),
-            const SizedBox(height: 24),
             const Text(
               'Vitesse de défilement',
               style: TextStyle(color: AppColors.textSecondary),

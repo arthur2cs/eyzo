@@ -1,8 +1,12 @@
-/// Écran cible sur les lunettes (voir specs.md §6.2 — champ SCREEN).
+/// Écran(s) cible(s) sur les lunettes (voir specs.md §6.2 — champ SCREEN).
 enum TargetScreen {
   left(0x00, 'Gauche'),
   right(0x01, 'Droit'),
-  both(0x02, 'Les deux');
+  simultaneous(0x02, 'Simultané'),
+
+  /// Texte uniquement : les 2 écrans forment une seule bande de défilement continue
+  /// (voir specs.md §4.2 et §6.3 — l'écran de départ dépend de la direction).
+  sequential(0x03, 'Séquentiel');
 
   const TargetScreen(this.byte, this.label);
 
@@ -10,9 +14,8 @@ enum TargetScreen {
   final String label;
 
   /// Le verre GAUCHE du porteur reçoit-il du contenu ?
-  bool get showsLeft => this == TargetScreen.left || this == TargetScreen.both;
+  bool get showsLeft => this != TargetScreen.right;
 
   /// Le verre DROIT du porteur reçoit-il du contenu ?
-  bool get showsRight =>
-      this == TargetScreen.right || this == TargetScreen.both;
+  bool get showsRight => this != TargetScreen.left;
 }

@@ -17,6 +17,7 @@ class PixelArtCanvas extends StatefulWidget {
     required this.drawColor,
     required this.eraseColor,
     required this.onFrameChanged,
+    this.onDrawingChanged,
   });
 
   final PixelFrame frame;
@@ -24,6 +25,12 @@ class PixelArtCanvas extends StatefulWidget {
   final int drawColor;
   final int eraseColor;
   final ValueChanged<PixelFrame> onFrameChanged;
+
+  /// Signale le début/la fin d'un tracé, pour permettre au parent de désactiver
+  /// temporairement le scroll de la page englobante et de préparer l'annulation
+  /// (voir specs.md §4.5) — sans ça, un glissé à un doigt fait défiler la page
+  /// au lieu de dessiner en continu.
+  final ValueChanged<bool>? onDrawingChanged;
 
   @override
   State<PixelArtCanvas> createState() => _PixelArtCanvasState();
@@ -51,6 +58,7 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
   }
 
   void _handleStart(Offset local, Size size) {
+    widget.onDrawingChanged?.call(true);
     final cell = _cellFromLocalPosition(local, size);
     if (cell == null) return;
     switch (widget.tool) {
@@ -102,6 +110,7 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
       _lineStart = null;
       _lineEnd = null;
     });
+    widget.onDrawingChanged?.call(false);
   }
 
   @override
@@ -111,12 +120,12 @@ class _PixelArtCanvasState extends State<PixelArtCanvas> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final size = Size(constraints.maxWidth, constraints.maxHeight);
-          return GestureDetector(
-            onPanStart: (d) => _handleStart(d.localPosition, size),
-            onPanUpdate: (d) => _handleUpdate(d.localPosition, size),
-            onPanEnd: (_) => _handleEnd(),
-            onTapDown: (d) => _handleStart(d.localPosition, size),
-            onTapUp: (_) => _handleEnd(),
+          return Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (event) => _handleStart(event.localPosition, size),
+            onPointerMove: (event) => _handleUpdate(event.localPosition, size),
+            onPointerUp: (_) => _handleEnd(),
+            onPointerCancel: (_) => _handleEnd(),
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(color: AppColors.border),

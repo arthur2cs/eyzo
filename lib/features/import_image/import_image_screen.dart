@@ -31,7 +31,7 @@ class ImportImageScreen extends ConsumerStatefulWidget {
 class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
   PixelAnimation? _animation;
   (int, int) _gridSize = (EyzoGrid.defaultWidth, EyzoGrid.defaultHeight);
-  TargetScreen _target = TargetScreen.both;
+  TargetScreen _target = TargetScreen.simultaneous;
   bool _loading = false;
   bool _sending = false;
   String? _error;
@@ -145,6 +145,57 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
     }
   }
 
+  Widget _emptyLens() {
+    return Container(
+      width: 130,
+      height: 130 * 320 / 240,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 32,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreview() {
+    if (_loading) {
+      return const SizedBox(
+        height: 180,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final animation = _animation;
+    return DualLensRow(
+      rightLens: LensWithLabel(
+        label: 'Droite',
+        lens: animation != null
+            ? PixelAnimationPreview(
+                animation: animation,
+                width: 130,
+                active: _target.showsRight,
+              )
+            : _emptyLens(),
+      ),
+      leftLens: LensWithLabel(
+        label: 'Gauche',
+        lens: animation != null
+            ? PixelAnimationPreview(
+                animation: animation,
+                width: 130,
+                active: _target.showsLeft,
+              )
+            : _emptyLens(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,48 +213,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
-            Center(
-              child: _loading
-                  ? const SizedBox(
-                      height: 180,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : _animation != null
-                  ? DualLensRow(
-                      rightLens: LensWithLabel(
-                        label: 'Droite',
-                        lens: PixelAnimationPreview(
-                          animation: _animation!,
-                          width: 130,
-                          active: _target.showsRight,
-                        ),
-                      ),
-                      leftLens: LensWithLabel(
-                        label: 'Gauche',
-                        lens: PixelAnimationPreview(
-                          animation: _animation!,
-                          width: 130,
-                          active: _target.showsLeft,
-                        ),
-                      ),
-                    )
-                  : Container(
-                      width: 180,
-                      height: 240,
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.image_outlined,
-                          size: 40,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-            ),
+            Center(child: _buildPreview()),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -213,6 +223,16 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
+            const SizedBox(height: 24),
+            const Text(
+              'Écran cible',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            TargetScreenSelector(
+              value: _target,
+              onChanged: (v) => setState(() => _target = v),
+            ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: _loading ? null : _pickImage,
@@ -262,16 +282,6 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
                   ),
                 ),
               ),
-            const SizedBox(height: 24),
-            const Text(
-              'Écran cible',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            TargetScreenSelector(
-              value: _target,
-              onChanged: (v) => setState(() => _target = v),
-            ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: (_animation == null || _sending) ? null : _send,

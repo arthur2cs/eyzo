@@ -47,13 +47,38 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   late int _frameDelayMs = widget.initialAnimation?.frameDelayMs ?? 150;
   EditorTool _tool = EditorTool.pixel;
   Color _drawColor = Colors.white;
-  late TargetScreen _target = widget.initialTarget ?? TargetScreen.both;
+  late TargetScreen _target = widget.initialTarget ?? TargetScreen.simultaneous;
   bool _sending = false;
+  bool _isDrawing = false;
+
+  // Une entrée = snapshot de la frame juste avant un tracé (pixel/ligne/remplissage),
+  // pour permettre d'annuler la dernière action (voir specs.md §4.5).
+  final List<(int, PixelFrame)> _undoStack = [];
 
   PixelFrame get _currentFrame => _frames[_currentIndex];
 
   void _updateCurrentFrame(PixelFrame frame) {
     setState(() => _frames[_currentIndex] = frame);
+  }
+
+  void _onDrawingChanged(bool drawing) {
+    setState(() {
+      if (drawing) {
+        _undoStack.add((_currentIndex, _currentFrame));
+        if (_undoStack.length > 20) _undoStack.removeAt(0);
+      }
+      _isDrawing = drawing;
+    });
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    final (index, frame) = _undoStack.removeLast();
+    setState(() {
+      final clamped = index.clamp(0, _frames.length - 1);
+      _frames[clamped] = frame;
+      _currentIndex = clamped;
+    });
   }
 
   void _addFrame() {
@@ -68,16 +93,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     setState(() {
       _frames.removeAt(_currentIndex);
       _currentIndex = _currentIndex.clamp(0, _frames.length - 1);
-    });
-  }
-
-  void _clearFrame() {
-    setState(() {
-      _frames[_currentIndex] = PixelFrame.blank(
-        _currentFrame.width,
-        _currentFrame.height,
-        fillRgb565: _eraseColor,
-      );
     });
   }
 
@@ -157,8 +172,40 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ),
       body: SafeArea(
         child: ListView(
+          physics: _isDrawing ? const NeverScrollableScrollPhysics() : null,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
+            Center(
+              child: DualLensRow(
+                rightLens: LensWithLabel(
+                  label: 'Droite',
+                  lens: PixelAnimationPreview(
+                    animation: _animation,
+                    width: 110,
+                    active: _target.showsRight,
+                  ),
+                ),
+                leftLens: LensWithLabel(
+                  label: 'Gauche',
+                  lens: PixelAnimationPreview(
+                    animation: _animation,
+                    width: 110,
+                    active: _target.showsLeft,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Écran cible',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            TargetScreenSelector(
+              value: _target,
+              onChanged: (v) => setState(() => _target = v),
+            ),
+            const SizedBox(height: 24),
             Center(
               child: SizedBox(
                 width: 240,
@@ -168,6 +215,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   drawColor: colorToRgb565(_drawColor),
                   eraseColor: _eraseColor,
                   onFrameChanged: _updateCurrentFrame,
+                  onDrawingChanged: _onDrawingChanged,
                 ),
               ),
             ),
@@ -185,9 +233,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             ),
             const SizedBox(height: 16),
             TextButton.icon(
-              onPressed: _clearFrame,
-              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-              label: const Text('Effacer la frame'),
+              onPressed: _undoStack.isEmpty ? null : _undo,
+              icon: const Icon(Icons.undo, size: 18),
+              label: const Text('Annuler'),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -262,37 +310,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 onChanged: (v) => setState(() => _frameDelayMs = v.round()),
               ),
             ],
-            const SizedBox(height: 16),
-            const Text(
-              'Écran cible',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            TargetScreenSelector(
-              value: _target,
-              onChanged: (v) => setState(() => _target = v),
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: DualLensRow(
-                rightLens: LensWithLabel(
-                  label: 'Droite',
-                  lens: PixelAnimationPreview(
-                    animation: _animation,
-                    width: 110,
-                    active: _target.showsRight,
-                  ),
-                ),
-                leftLens: LensWithLabel(
-                  label: 'Gauche',
-                  lens: PixelAnimationPreview(
-                    animation: _animation,
-                    width: 110,
-                    active: _target.showsLeft,
-                  ),
-                ),
-              ),
-            ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: _sending ? null : _send,
