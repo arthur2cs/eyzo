@@ -112,9 +112,17 @@ class _PixelAnimationPreviewState extends State<PixelAnimationPreview> {
     }
     return GlassesScreenFrame(
       width: widget.width,
-      child: CustomPaint(
-        painter: PixelFramePainter(frame),
-        size: Size.infinite,
+      // Le cadre GlassesScreenFrame a un ratio esthétique (3:2) indépendant
+      // de la grille réelle : sans ce letterbox, le contenu (déjà correct,
+      // non déformé) serait réétiré pour remplir le cadre.
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: frame.width / frame.height,
+          child: CustomPaint(
+            painter: PixelFramePainter(frame),
+            size: Size.infinite,
+          ),
+        ),
       ),
     );
   }

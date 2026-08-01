@@ -7,7 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/ble/ble_connection_state.dart';
 import '../../core/ble/ble_providers.dart';
-import '../../core/constants.dart';
+import '../../core/glasses_display.dart';
 import '../../core/storage/favorites_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/image_conversion.dart';
@@ -31,7 +31,11 @@ class ImportImageScreen extends ConsumerStatefulWidget {
 
 class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
   PixelAnimation? _animation;
-  (int, int) _gridSize = (EyzoGrid.defaultWidth, EyzoGrid.defaultHeight);
+  (int, int) _gridSize = (
+    GlassesDisplay.defaultWorkingWidth,
+    GlassesDisplay.defaultWorkingHeight,
+  );
+  ImageFitMode _fitMode = ImageFitMode.cover;
   TargetScreen _target = TargetScreen.simultaneous;
   bool _loading = false;
   bool _sending = false;
@@ -69,6 +73,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
         isGif: isGif,
         gridWidth: _gridSize.$1,
         gridHeight: _gridSize.$2,
+        fitMode: _fitMode,
       );
       setState(() => _animation = animation);
     } catch (e) {
@@ -80,6 +85,13 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
 
   void _onGridSizeChanged((int, int) size) {
     setState(() => _gridSize = size);
+    if (_sourceBytes != null) {
+      _loadFromBytes(_sourceBytes!, isGif: _sourceIsGif);
+    }
+  }
+
+  void _onFitModeChanged(ImageFitMode mode) {
+    setState(() => _fitMode = mode);
     if (_sourceBytes != null) {
       _loadFromBytes(_sourceBytes!, isGif: _sourceIsGif);
     }
@@ -253,15 +265,38 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
+              'Cadrage',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<ImageFitMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ImageFitMode.cover,
+                  label: Text('Remplir'),
+                  icon: Icon(Icons.crop),
+                ),
+                ButtonSegment(
+                  value: ImageFitMode.contain,
+                  label: Text('Image entière'),
+                  icon: Icon(Icons.fit_screen_outlined),
+                ),
+              ],
+              selected: {_fitMode},
+              onSelectionChanged: (selection) =>
+                  _onFitModeChanged(selection.first),
+            ),
+            const SizedBox(height: 24),
+            const Text(
               'Résolution de travail',
               style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: EyzoGrid.availableSizes.map((size) {
+              children: GlassesDisplay.availableWorkingSizes.map((size) {
                 final selected = size == _gridSize;
-                final isFullRes = size == EyzoGrid.fullResolution;
+                final isFullRes = size == GlassesDisplay.nativeResolution;
                 return ChoiceChip(
                   label: Text(
                     isFullRes
@@ -273,7 +308,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
                 );
               }).toList(),
             ),
-            if (_gridSize == EyzoGrid.fullResolution)
+            if (_gridSize == GlassesDisplay.nativeResolution)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(

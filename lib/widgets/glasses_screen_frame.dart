@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../core/glasses_display.dart';
 import '../core/theme/app_theme.dart';
 
-/// Cadre simulant un écran des lunettes, dessiné au format 3:2 pour un
-/// aperçu plus réaliste que le ratio natif 240x320 du panneau ST7789V
+/// Cadre simulant un écran des lunettes, dessiné au ratio d'aperçu défini
+/// dans [GlassesDisplay] plutôt qu'au ratio natif du panneau ST7735S
 /// (voir specs.md §2/§3).
 class GlassesScreenFrame extends StatelessWidget {
   const GlassesScreenFrame({
@@ -17,7 +18,7 @@ class GlassesScreenFrame extends StatelessWidget {
   final double width;
   final Color backgroundColor;
 
-  static const double aspectRatio = 3 / 2;
+  static const double aspectRatio = GlassesDisplay.previewAspectRatio;
 
   @override
   Widget build(BuildContext context) {

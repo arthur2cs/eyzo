@@ -16,7 +16,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
 ## 2. Matériel cible
 
 - **MCU** : Seeed Studio XIAO ESP32S3 (240 MHz, WiFi + BLE, Arduino/MicroPython)
-- **Écrans** : 2x écran TFT SPI 2,4" ST7789V, résolution 240x320, couleur (RGB565)
+- **Écrans** : 2x écran TFT SPI 1,77" ST7735S, résolution 128x160 (dalle native), montés en orientation **paysage** dans les lunettes → résolution effective 160x128, couleur (RGB565)
 - **Écran gauche / écran droit** : pilotés indépendamment, chacun peut afficher un contenu différent
 - **Firmware ESP32** : pas encore développé — ce document définit le protocole de communication qu'il devra implémenter
 
@@ -31,7 +31,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
   - Rose `#FB7B77` (langue du panda) en accent vif, réservé à **exactement 3 usages** : le statut "connecté", l'indicateur de navigation (Accueil/Favoris/Paramètres) et le focus des champs de texte (bordure pendant la saisie, icône favoris une fois enregistré) — jamais dans les sélections/contrôles des pages (chips, segmented button, slider restent en blanc/noir neutre)
 - **Typographie** : police arrondie et généreuse (Quicksand) pour un rendu plus doux/amical que la police système par défaut ; boutons avec padding et rayons de bordure généreux (20dp). Police embarquée localement dans `assets/fonts/` (aucun téléchargement au premier lancement)
 - **Aperçu miroir** : les écrans de composition affichent les 2 verres côte à côte selon la convention "je vois ce que le porteur montre au public" — le verre **droit** du porteur est affiché à **gauche** dans l'app, le verre **gauche** du porteur à **droite** (vue miroir, comme se faire face)
-- **Format des cadres d'aperçu** : dessinés au ratio **3:2** (plus large que haut) pour un rendu visuellement plus proche d'un vrai petit écran de lunettes que le ratio natif 3:4 du panneau ST7789V (240x320) — un choix esthétique côté app, sans lien avec la résolution réelle des données envoyées (voir §6.3)
+- **Format des cadres d'aperçu** : dessinés au ratio **3:2** (plus large que haut) pour un rendu visuellement plus proche d'un vrai petit écran de lunettes que le ratio natif 5:4 du panneau ST7735S en orientation paysage (160x128) — un choix esthétique côté app, sans lien avec la résolution réelle des données envoyées (voir §6.3)
 
 ## 4. Fonctionnalités
 
@@ -58,7 +58,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
   - **Couleur du texte et couleur de fond** (color picker, rendu RGB565 sur les écrans)
   - **Police et taille de caractère** (liste de polices bitmap embarquées côté firmware, sélection par id)
   - **Direction / mode** : défilement gauche→droite, droite→gauche, statique, clignotant
-- **Aperçu double-verre** dans l'app avant envoi, y compris pour le mode Séquentiel (simulateur des 2 écrans 240x320 miniatures, voir §3)
+- **Aperçu double-verre** dans l'app avant envoi, y compris pour le mode Séquentiel (simulateur des 2 écrans 160x128 miniatures, voir §3)
 - Bouton "Envoyer" + bouton "Ajouter aux favoris"
 
 ### 4.3 Import d'image / GIF
@@ -68,13 +68,16 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
   - Le clavier transmet soit les octets du GIF directement, soit une URI `content://` — dans ce second cas (le plus fréquent pour des GIF, plus volumineux), l'app lit l'URI via un petit pont natif Android (`MethodChannel` + `ContentResolver.openInputStream`, voir `MainActivity.kt`)
   - Ne nécessite ni compte, ni clé API, ni connexion Internet côté app (le clavier gère lui-même le téléchargement/cache du GIF)
   - ~~Recherche Tenor intégrée~~ abandonnée : Tenor n'accepte plus de nouveaux clients API depuis janvier 2026
-- Redimensionnement/conversion automatique vers la résolution de travail (voir §4.4) avant transfert
-- Aperçu double-verre (recadrage si nécessaire) avant envoi
+- Redimensionnement/conversion automatique vers la résolution de travail (voir §4.4) avant transfert — jamais de déformation ; deux modes de cadrage au choix (**Remplir**, par défaut, ou **Image entière**), voir ci-dessous
+- **Mode de cadrage** :
+  - **Remplir** *(par défaut)* : la plus petite dimension colle aux bords de la grille, le surplus sur l'autre dimension est recadré (crop centré)
+  - **Image entière** : l'image est incluse en entier, quitte à laisser des bandes noires (letterbox/pillarbox) sur les bords
+- Aperçu double-verre avant envoi
 - Sélection de l'écran cible
 
 ### 4.4 Éditeur pixel-art
 
-- Grille de dessin en **basse résolution** (ex: 32x42 ou 64x64, configurable) — l'app fait l'**upscale** (nearest-neighbor) pour remplir l'écran 240x320 réel, à la fois pour l'aperçu app et pour le rendu final sur les lunettes
+- Grille de dessin en **basse résolution** (ex: 40x32 ou 80x64, configurable) — l'app fait l'**upscale** (nearest-neighbor) pour remplir l'écran 160x128 réel, à la fois pour l'aperçu app et pour le rendu final sur les lunettes
 - Outils : pixel, ligne, remplissage (bucket), gomme, palette de couleurs
 - Gestion multi-frames : ajouter / dupliquer / supprimer une frame, réglage du délai entre frames (animation image par image)
 - Aperçu animé en direct dans l'app
@@ -175,7 +178,7 @@ En-tête commun à chaque paquet (chunk) :
 | 2 | `pixel_len` |
 | N | pixels RGB565 (row-major), répartis sur plusieurs chunks selon `SEQ`/`TOTAL` |
 
-> Le firmware reçoit l'image en basse résolution (grille de l'éditeur) et effectue l'**upscale nearest-neighbor** vers les 240x320 réels de l'écran ST7789V, afin de limiter drastiquement le volume de données transmis en BLE (une image plein format 240x320 en RGB565 pèse ~150 Ko, ce qui est trop lourd pour une transmission fluide en BLE, surtout pour des animations multi-frames).
+> Le firmware reçoit l'image en basse résolution (grille de l'éditeur) et effectue l'**upscale nearest-neighbor** vers les 160x128 réels de l'écran ST7735S (orientation paysage), afin de limiter le volume de données transmis en BLE (une image plein format 160x128 en RGB565 pèse ~40 Ko, ce qui reste lourd pour une transmission fluide en BLE, surtout pour des animations multi-frames).
 
 ### 6.4 Batterie
 
@@ -212,11 +215,11 @@ En-tête commun à chaque paquet (chunk) :
 ## 9. Points ouverts / risques
 
 - **UUID GATT** : valeurs d'exemple à figer définitivement avec le développement du firmware.
-- **Débit BLE** : à mesurer en conditions réelles pour calibrer la résolution max de travail de l'éditeur/import (32x42, 64x64, ou plus) sans dégrader l'expérience (temps d'envoi trop long).
+- **Débit BLE** : à mesurer en conditions réelles pour calibrer la résolution max de travail de l'éditeur/import (40x32, 80x64, ou plus) sans dégrader l'expérience (temps d'envoi trop long).
 - **Lecture batterie** : dépend d'un ajout matériel (pont diviseur) sur le XIAO ESP32S3, non garanti par défaut.
 - **Rendu texte sur écran** : le firmware devra embarquer les polices bitmap sélectionnables (font_id) — liste des polices à définir conjointement.
 - **Deux écrans SPI simultanés** : sujet firmware/hardware (bus SPI partagé ou non), sans impact direct sur l'app tant que le contrat `SCREEN` (gauche/droit/simultané/séquentiel) est respecté.
 - **Mode séquentiel** : la convention départ/arrivée selon la direction (voir §6.3) est un choix documenté côté app, à valider/ajuster une fois le rendu réel testé sur le firmware — c'est le firmware qui implémente concrètement le rendu "bande continue" à travers les 2 écrans.
 - **Insertion GIF clavier** : dépend du clavier utilisé (Gboard le supporte via `commitContent` ; certains claviers tiers peuvent ne pas l'implémenter, auquel cas seul l'import galerie reste disponible). Comportement à valider sur plusieurs claviers/appareils réels.
 - **Refus ponctuel côté clavier** : le clavier peut, pour un GIF donné, décider lui-même (toast natif, hors contrôle de l'app) que l'insertion n'est pas supportée ici — la liste de types MIME acceptés a été élargie (`image/*` en plus des types explicites) pour limiter ces cas, mais un rejet natif du clavier ne peut pas toujours être intercepté côté app ; la galerie reste le filet de sécurité.
-- **Résolution plein écran (240x320) en import** : disponible en option, mais une animation multi-frames à cette résolution peut représenter plusieurs Mo à transférer en BLE — à utiliser avec parcimonie tant que le débit réel n'est pas mesuré (voir point ci-dessus sur le débit BLE).
+- **Résolution plein écran (160x128) en import** : disponible en option, mais une animation multi-frames à cette résolution peut représenter plusieurs centaines de Ko à transférer en BLE — à utiliser avec parcimonie tant que le débit réel n'est pas mesuré (voir point ci-dessus sur le débit BLE).

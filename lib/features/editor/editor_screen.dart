@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/ble/ble_connection_state.dart';
 import '../../core/ble/ble_providers.dart';
-import '../../core/constants.dart';
+import '../../core/glasses_display.dart';
 import '../../core/storage/favorites_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/color_convert.dart';
@@ -38,8 +38,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ? List.of(widget.initialAnimation!.frames)
       : [
           PixelFrame.blank(
-            EyzoGrid.defaultWidth,
-            EyzoGrid.defaultHeight,
+            GlassesDisplay.defaultWorkingWidth,
+            GlassesDisplay.defaultWorkingHeight,
             fillRgb565: _eraseColor,
           ),
         ];

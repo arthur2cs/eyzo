@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 /// Une frame de l'animation : pixels encodés en RGB565 (2 octets/pixel), row-major.
-/// Résolution de travail basse (ex: 32x42, 64x64) — voir specs.md §4.5 / §6.3.
+/// Résolution de travail basse (ex: 40x32, 80x64) — voir specs.md §4.5 / §6.3.
 class PixelFrame {
   const PixelFrame({
     required this.width,
