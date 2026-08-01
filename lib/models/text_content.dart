@@ -6,8 +6,8 @@ import 'scroll_direction_mode.dart';
 class TextContent {
   const TextContent({
     required this.text,
-    this.font = GlassesFont.classic,
-    this.size = 2,
+    this.font = GlassesFont.bold,
+    this.size = 10,
     this.colorFg = Colors.white,
     this.colorBg = Colors.black,
     this.speed = 5,
@@ -21,6 +21,11 @@ class TextContent {
   final Color colorBg;
   final int speed;
   final ScrollDirectionMode direction;
+
+  /// Texte tel qu'il sera effectivement affiché/envoyé : la police "Pixel"
+  /// n'a que des glyphes majuscules (voir specs.md §4.2).
+  String get renderedText =>
+      font == GlassesFont.pixel ? text.toUpperCase() : text;
 
   TextContent copyWith({
     String? text,

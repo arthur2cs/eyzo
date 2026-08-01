@@ -63,6 +63,12 @@ flutter:
           weight: 600
         - asset: assets/fonts/Quicksand-VariableFont_wght.ttf
           weight: 700
+    # Police "Pixel" (aperçu de l'option GlassesFont.pixel) : Press Start 2P,
+    # licence SIL OFL dans assets/fonts/PressStart2P-OFL.txt, embarquée
+    # localement pour la même raison que Quicksand ci-dessus.
+    - family: PressStart2P
+      fonts:
+        - asset: assets/fonts/PressStart2P-Regular.ttf
 
 flutter_launcher_icons:
   android: true

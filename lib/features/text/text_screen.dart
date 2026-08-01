@@ -30,7 +30,7 @@ class TextScreen extends ConsumerStatefulWidget {
 class _TextScreenState extends ConsumerState<TextScreen> {
   late final TextEditingController _textController;
   late TextContent _content;
-  TargetScreen _target = TargetScreen.simultaneous;
+  TargetScreen _target = TargetScreen.sequential;
   bool _sending = false;
   bool _savedAsFavorite = false;
 
@@ -197,8 +197,8 @@ class _TextScreenState extends ConsumerState<TextScreen> {
             Slider(
               value: _content.size.toDouble(),
               min: 1,
-              max: 5,
-              divisions: 4,
+              max: 10,
+              divisions: 9,
               label: '${_content.size}',
               onChanged: (v) =>
                   setState(() => _content = _content.copyWith(size: v.round())),

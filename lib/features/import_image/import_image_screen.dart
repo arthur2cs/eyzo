@@ -31,10 +31,11 @@ class ImportImageScreen extends ConsumerStatefulWidget {
 
 class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
   PixelAnimation? _animation;
-  (int, int) _gridSize = (
-    GlassesDisplay.defaultWorkingWidth,
-    GlassesDisplay.defaultWorkingHeight,
-  );
+  // Résolution de travail par défaut : le plein format natif de la dalle,
+  // pour un import photo net d'entrée de jeu (contrairement à l'éditeur
+  // pixel-art, qui reste sur GlassesDisplay.defaultWorkingWidth/Height —
+  // voir specs.md §4.3 vs §4.5).
+  (int, int) _gridSize = GlassesDisplay.nativeResolution;
   ImageFitMode _fitMode = ImageFitMode.cover;
   TargetScreen _target = TargetScreen.simultaneous;
   bool _loading = false;

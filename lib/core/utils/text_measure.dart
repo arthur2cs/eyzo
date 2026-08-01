@@ -12,3 +12,12 @@ double measureTextWidth(String text, TextStyle style) {
   )..layout();
   return painter.width;
 }
+
+/// Durée d'un cycle complet (allumé + éteint) du mode "Clignotant", sur une
+/// échelle de vitesse 1-10 — indépendante de la longueur du texte, à
+/// l'inverse de la vitesse de défilement (voir specs.md §4.2).
+Duration blinkPeriod(int speed) {
+  final clamped = speed.clamp(1, 10);
+  final ms = 900 - clamped * 70;
+  return Duration(milliseconds: ms);
+}

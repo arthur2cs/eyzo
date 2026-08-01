@@ -20,7 +20,7 @@ class EyzoPacketBuilder {
     payload.add(_uint16le(colorToRgb565(content.colorBg)));
     payload.addByte(content.speed);
     payload.addByte(content.direction.byte);
-    final textBytes = utf8.encode(content.text);
+    final textBytes = utf8.encode(content.renderedText);
     payload.add(_uint16le(textBytes.length));
     payload.add(textBytes);
     return _chunk(

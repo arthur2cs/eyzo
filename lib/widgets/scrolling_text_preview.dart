@@ -71,18 +71,35 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
     color: widget.content.colorFg,
     fontSize: _fontSize,
     fontWeight: widget.content.font == GlassesFont.bold
-        ? FontWeight.bold
+        ? FontWeight.w900
         : FontWeight.normal,
-    fontFamily: widget.content.font.label == 'Mono' ? 'monospace' : null,
+    fontFamily: switch (widget.content.font) {
+      GlassesFont.mono => 'monospace',
+      GlassesFont.pixel => 'PressStart2P',
+      GlassesFont.classic || GlassesFont.bold => null,
+    },
   );
 
-  String get _displayText =>
-      widget.content.text.isEmpty ? 'Aperçu…' : widget.content.text;
+  String get _displayText {
+    final text = widget.content.text.isEmpty
+        ? 'Votre texte…'
+        : widget.content.text;
+    return widget.content.font == GlassesFont.pixel
+        ? text.toUpperCase()
+        : text;
+  }
 
   /// Vitesse cible en px/s (échelle 1-10) — la durée du cycle est déduite de la
   /// distance réelle à parcourir pour que le texte défile à une vitesse à peu
   /// près constante, quelle que soit sa longueur (voir specs.md §4.2).
   void _recomputeDuration() {
+    if (widget.content.direction == ScrollDirectionMode.blink) {
+      // Le clignotement n'a pas de "distance à parcourir" : sa durée ne doit
+      // dépendre que de la vitesse, pas de la longueur du texte (sinon un
+      // message long clignoterait lentement même à vitesse 10).
+      _controller.duration = blinkPeriod(widget.content.speed);
+      return;
+    }
     final speed = widget.content.speed.clamp(1, 10);
     final pxPerSecond = 30.0 + speed * 25.0;
     final textWidth = measureTextWidth(_displayText, _textStyle);
