@@ -16,6 +16,12 @@ class GlassesDisplay {
   static const int nativeHeight = 128;
   static const (int, int) nativeResolution = (nativeWidth, nativeHeight);
 
+  /// Dimensions physiques d'un écran en mode paysage, en mm — sert à convertir
+  /// l'espace inter-écran réglable par l'utilisateur (voir [SettingsStore])
+  /// en délai de traversée dans l'aperçu du mode séquentiel (specs.md §4.2).
+  static const double lensWidthMm = 35.0;
+  static const double lensHeightMm = 28.0;
+
   /// Résolution de travail par défaut pour l'éditeur pixel-art, l'import
   /// d'image/GIF, etc. — le firmware fait l'upscale nearest-neighbor vers
   /// la résolution native (voir specs.md §4.5).

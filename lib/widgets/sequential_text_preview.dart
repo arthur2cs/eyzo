@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/glasses_display.dart';
 import '../core/utils/text_measure.dart';
 import '../models/scroll_direction_mode.dart';
 import '../models/text_content.dart';
@@ -19,10 +20,16 @@ class SequentialTextPreview extends StatefulWidget {
     super.key,
     required this.content,
     this.lensWidth = 130,
+    this.interLensGapMm = 0,
   });
 
   final TextContent content;
   final double lensWidth;
+
+  /// Espace physique entre les 2 écrans (non collés dans le prototype), en
+  /// mm — voir [DualLensRow]. Converti en délai de traversée du texte
+  /// pendant l'animation (voir [_gapPx]/[_combinedWidth]).
+  final double interLensGapMm;
 
   @override
   State<SequentialTextPreview> createState() => _SequentialTextPreviewState();
@@ -90,7 +97,14 @@ class _SequentialTextPreviewState extends State<SequentialTextPreview>
         : text;
   }
 
-  double get _combinedWidth => widget.lensWidth * 2;
+  /// Largeur (en px d'aperçu) de l'espace inter-écran, convertie depuis
+  /// [SequentialTextPreview.interLensGapMm] au prorata de la largeur physique
+  /// réelle d'un écran (voir [GlassesDisplay.lensWidthMm]) — le texte y est
+  /// invisible le temps de la traverser, à la même vitesse que le défilement.
+  double get _gapPx =>
+      widget.interLensGapMm / GlassesDisplay.lensWidthMm * widget.lensWidth;
+
+  double get _combinedWidth => widget.lensWidth * 2 + _gapPx;
 
   /// Voir [ScrollingTextPreview._recomputeDuration] — même logique, sur la
   /// largeur combinée des 2 écrans.
@@ -191,7 +205,7 @@ class _SequentialTextPreviewState extends State<SequentialTextPreview>
     // d'un bord extérieur à l'autre au lieu de continuer d'un écran à l'autre.
     final droitLens = travels ? _window(0) : _staticOrBlinkWindow();
     final gaucheLens = travels
-        ? _window(widget.lensWidth)
+        ? _window(widget.lensWidth + _gapPx)
         : _staticOrBlinkWindow();
 
     return DualLensRow(

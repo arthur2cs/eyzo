@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/ble/ble_connection_state.dart';
 import '../../core/ble/ble_providers.dart';
+import '../../core/storage/display_settings_providers.dart';
 import '../../core/storage/favorites_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/favorite_item.dart';
@@ -131,7 +132,11 @@ class _TextScreenState extends ConsumerState<TextScreen> {
           children: [
             Center(
               child: _target == TargetScreen.sequential
-                  ? SequentialTextPreview(content: _content, lensWidth: 130)
+                  ? SequentialTextPreview(
+                      content: _content,
+                      lensWidth: 130,
+                      interLensGapMm: ref.watch(interLensGapProvider),
+                    )
                   : DualLensRow(
                       rightLens: LensWithLabel(
                         label: 'Droite',
