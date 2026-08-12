@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:archive/archive.dart';
 
 import '../../models/pixel_animation.dart';
 import '../../models/target_screen.dart';
 import '../../models/text_content.dart';
-import '../utils/color_convert.dart';
+import '../utils/text_bitmap_renderer.dart';
 import 'eyzo_protocol.dart';
 
 /// Construit les trames binaires envoyées sur la caractéristique Commande.
@@ -12,22 +13,57 @@ import 'eyzo_protocol.dart';
 class EyzoPacketBuilder {
   EyzoPacketBuilder._();
 
-  static List<Uint8List> setText(TargetScreen screen, TextContent content) {
+  /// Rend [content] en bitmap RGB565 (voir text_bitmap_renderer.dart, fidèle
+  /// à l'aperçu) et construit la trame `SET_TEXT` correspondante. Le firmware
+  /// ne fait plus de rendu de police : il affiche/défile ce bitmap tel quel.
+  static Future<List<Uint8List>> setText(
+    TargetScreen screen,
+    TextContent content,
+  ) async {
+    final bitmap = await renderTextBitmap(content);
+    final pixels = bitmap.frame.pixelsRgb565;
+
+    // Validation sur la taille brute (avant compression) : c'est elle qui
+    // borne le buffer de décompression PSRAM côté firmware (MAX_PAYLOAD_SIZE,
+    // voir ble_manager.cpp), la taille effectivement transmise sur le lien
+    // BLE étant elle réduite par la compression ci-dessous.
+    final rawLen = 7 + pixels.length;
+    if (rawLen > EyzoProtocol.maxPayloadSize) {
+      throw ArgumentError(
+        'Texte trop volumineux pour être envoyé ($rawLen octets) : '
+        'réduisez le message ou la taille de police.',
+      );
+    }
+
+    final (format, data) = _encodePixels(pixels);
+
     final payload = BytesBuilder();
-    payload.addByte(content.font.id);
-    payload.addByte(content.size);
-    payload.add(_uint16le(colorToRgb565(content.colorFg)));
-    payload.add(_uint16le(colorToRgb565(content.colorBg)));
-    payload.addByte(content.speed);
     payload.addByte(content.direction.byte);
-    final textBytes = utf8.encode(content.renderedText);
-    payload.add(_uint16le(textBytes.length));
-    payload.add(textBytes);
+    payload.addByte(content.speed);
+    payload.add(_uint16le(bitmap.colorBgRgb565));
+    payload.add(_uint16le(bitmap.frame.width));
+    payload.addByte(bitmap.frame.height);
+    payload.addByte(format);
+    payload.add(data);
+
     return _chunk(
       cmd: EyzoProtocol.cmdSetText,
       screen: screen,
       payload: payload.toBytes(),
     );
+  }
+
+  /// Compresse [raw] en zlib (RFC1950 — décompressable par la lib
+  /// `zlib_turbo` côté firmware, voir firmware/README.md) si ça réduit
+  /// effectivement la taille transmise sur le lien BLE ; sinon renvoie les
+  /// données brutes telles quelles (jamais de régression de taille pour un
+  /// contenu peu compressible, ex. image très texturée/bruitée).
+  static (int format, Uint8List data) _encodePixels(Uint8List raw) {
+    final compressed = const ZLibEncoder().encodeBytes(raw);
+    if (compressed.length < raw.length) {
+      return (EyzoProtocol.pixelFormatZlib, compressed);
+    }
+    return (EyzoProtocol.pixelFormatRaw, raw);
   }
 
   static List<Uint8List> setStaticImage(TargetScreen screen, PixelFrame frame) {
@@ -105,14 +141,20 @@ class EyzoPacketBuilder {
     required int totalFrames,
     required int frameDelayMs,
   }) {
+    // pixel_len (uint16) reste dans ses bornes : la résolution de travail
+    // max (160x128, voir GlassesDisplay) donne 40 960 octets bruts, la
+    // compression ne peut que réduire ce chiffre.
+    final (format, data) = _encodePixels(frame.pixelsRgb565);
+
     final payload = BytesBuilder();
     payload.addByte(frame.width);
     payload.addByte(frame.height);
+    payload.addByte(format);
     payload.addByte(frameIndex);
     payload.addByte(totalFrames);
     payload.add(_uint16le(frameDelayMs));
-    payload.add(_uint16le(frame.pixelsRgb565.length));
-    payload.add(frame.pixelsRgb565);
+    payload.add(_uint16le(data.length));
+    payload.add(data);
     return payload.toBytes();
   }
 

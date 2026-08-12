@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/ble/ble_connection_state.dart';
 import '../../core/ble/ble_permissions.dart';
 import '../../core/ble/ble_providers.dart';
+import '../../core/ble/eyzo_protocol.dart';
 import '../../core/theme/app_theme.dart';
 
 class ConnectionScreen extends ConsumerStatefulWidget {
@@ -49,13 +50,28 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
       setState(() {
         _results
           ..clear()
-          ..addAll(results..sort((a, b) => b.rssi.compareTo(a.rssi)));
+          ..addAll(results..sort(_compareResults));
       });
     });
 
     Future.delayed(const Duration(seconds: 8), () {
       if (mounted) setState(() => _scanning = false);
     });
+  }
+
+  bool _isEyzoDevice(ScanResult result) =>
+      result.device.platformName.startsWith(EyzoProtocol.deviceNamePrefix);
+
+  /// Épingle les lunettes en tête de liste (identifiées par leur nom
+  /// annoncé, voir `EyzoProtocol.deviceNamePrefix`) : sans ça, le tri par
+  /// RSSI seul les fait remonter/descendre à chaque tick de scan au fil des
+  /// autres appareils détectés, ce qui fait rater le tap au moment de
+  /// s'appairer.
+  int _compareResults(ScanResult a, ScanResult b) {
+    final aIsEyzo = _isEyzoDevice(a);
+    final bIsEyzo = _isEyzoDevice(b);
+    if (aIsEyzo != bIsEyzo) return aIsEyzo ? -1 : 1;
+    return b.rssi.compareTo(a.rssi);
   }
 
   Future<void> _connect(BluetoothDevice device) async {

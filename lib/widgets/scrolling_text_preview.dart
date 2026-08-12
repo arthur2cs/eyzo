@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 import '../core/utils/text_measure.dart';
+import '../core/utils/text_style.dart';
 import '../models/scroll_direction_mode.dart';
 import '../models/text_content.dart';
 import 'glasses_screen_frame.dart';
@@ -65,20 +66,7 @@ class _ScrollingTextPreviewState extends State<ScrollingTextPreview>
     super.dispose();
   }
 
-  double get _fontSize => 12.0 + widget.content.size * 4.0;
-
-  TextStyle get _textStyle => TextStyle(
-    color: widget.content.colorFg,
-    fontSize: _fontSize,
-    fontWeight: widget.content.font == GlassesFont.bold
-        ? FontWeight.w900
-        : FontWeight.normal,
-    fontFamily: switch (widget.content.font) {
-      GlassesFont.mono => 'monospace',
-      GlassesFont.pixel => 'PressStart2P',
-      GlassesFont.classic || GlassesFont.bold => null,
-    },
-  );
+  TextStyle get _textStyle => textStyleFor(widget.content);
 
   String get _displayText {
     final text = widget.content.text.isEmpty

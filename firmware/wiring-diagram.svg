@@ -1,0 +1,293 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 900" role="img"
+     aria-label="Schema de cablage du module ESP32-S3 (mini, pinout D0-D10 compatible XIAO ESP32S3) pour les lunettes Eyzo : brochage physique en haut a gauche, cablage logique vers les 2 ecrans ST7735 et le bouton poussoir en haut a droite, et connecteur des ecrans en bas.">
+  <style>
+    text { font-family: "Segoe UI", Helvetica, Arial, sans-serif; fill: #1a1a1a; }
+    .code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; }
+    .title { font-size: 17px; font-weight: 700; }
+    .board-label { font-size: 13px; font-weight: 700; }
+    .pin-code { font-size: 12px; font-weight: 600; }
+    .pin-note { font-size: 10.5px; fill: #555; }
+    .legend { font-size: 11.5px; }
+    .box-title { font-size: 13px; font-weight: 700; }
+    .entry-label { font-size: 11.5px; font-weight: 600; }
+    .conn-label { font-size: 12px; font-weight: 700; }
+    .conn-dest { font-size: 10.5px; fill: #444; }
+  </style>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1480" height="900" fill="#ffffff"/>
+
+  <!-- ============ PANEL 1 : brochage physique (decale de +100px) ============ -->
+  <g transform="translate(100,0)">
+    <text x="220" y="30" class="title" text-anchor="middle">Brochage physique (vue de dessus, USB vers le haut)</text>
+
+    <!-- Board outline -->
+    <rect x="160" y="70" width="140" height="480" rx="16" fill="#f6f5f0" stroke="#222" stroke-width="2"/>
+    <rect x="208" y="54" width="44" height="20" rx="3" fill="#d8d8d2" stroke="#222" stroke-width="1.5"/>
+    <text x="230" y="68" font-size="9" text-anchor="middle" fill="#333">USB</text>
+    <text x="230" y="330" class="board-label" text-anchor="middle" transform="rotate(-90 230 330)">ESP32-S3 Mini</text>
+
+    <!-- Left pins (vu de dessus, USB en haut) : D0..D6 de haut en bas, y: 110,170,230,290,350,410,470 -->
+    <g class="code">
+      <circle cx="160" cy="110" r="4" fill="#b45309"/>
+      <line x1="160" y1="110" x2="60" y2="110" stroke="#b45309" stroke-width="1.5"/>
+      <text x="55" y="106" text-anchor="end" class="pin-code" fill="#b45309">D0 / GPIO1</text>
+      <text x="55" y="119" text-anchor="end" class="pin-note">CS écran gauche</text>
+
+      <circle cx="160" cy="170" r="4" fill="#b45309"/>
+      <line x1="160" y1="170" x2="60" y2="170" stroke="#b45309" stroke-width="1.5"/>
+      <text x="55" y="166" text-anchor="end" class="pin-code" fill="#b45309">D1 / GPIO2</text>
+      <text x="55" y="179" text-anchor="end" class="pin-note">CS écran droit</text>
+
+      <circle cx="160" cy="230" r="4" fill="#0f766e"/>
+      <line x1="160" y1="230" x2="60" y2="230" stroke="#0f766e" stroke-width="1.5"/>
+      <text x="55" y="226" text-anchor="end" class="pin-code" fill="#0f766e">D2 / GPIO3</text>
+      <text x="55" y="239" text-anchor="end" class="pin-note">DC (partagé)</text>
+
+      <circle cx="160" cy="290" r="4" fill="#7c3aed"/>
+      <line x1="160" y1="290" x2="60" y2="290" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="55" y="286" text-anchor="end" class="pin-code" fill="#7c3aed">D3 / GPIO4</text>
+      <text x="55" y="299" text-anchor="end" class="pin-note">RST écran gauche</text>
+
+      <circle cx="160" cy="350" r="4" fill="#7c3aed"/>
+      <line x1="160" y1="350" x2="60" y2="350" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="55" y="346" text-anchor="end" class="pin-code" fill="#7c3aed">D4 / GPIO5</text>
+      <text x="55" y="359" text-anchor="end" class="pin-note">RST écran droit</text>
+
+      <circle cx="160" cy="410" r="4" fill="#dc2626"/>
+      <line x1="160" y1="410" x2="60" y2="410" stroke="#dc2626" stroke-width="1.5"/>
+      <text x="55" y="406" text-anchor="end" class="pin-code" fill="#dc2626">D5 / GPIO6</text>
+      <text x="55" y="419" text-anchor="end" class="pin-note">bouton poussoir</text>
+
+      <circle cx="160" cy="470" r="4" fill="#999"/>
+      <line x1="160" y1="470" x2="60" y2="470" stroke="#999" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="55" y="466" text-anchor="end" class="pin-code" fill="#999">D6 / GPIO43</text>
+      <text x="55" y="479" text-anchor="end" class="pin-note">libre (réservé, ex. batterie)</text>
+    </g>
+
+    <!-- Right pins (vu de dessus, USB en haut) : VUSB, GND, 3V3, puis D10..D7 de haut en bas -->
+    <g class="code">
+      <circle cx="300" cy="110" r="4" fill="#555"/>
+      <line x1="300" y1="110" x2="400" y2="110" stroke="#555" stroke-width="1.5"/>
+      <text x="405" y="114" class="pin-code" fill="#555">VUSB (5V)</text>
+
+      <circle cx="300" cy="170" r="4" fill="#555"/>
+      <line x1="300" y1="170" x2="400" y2="170" stroke="#555" stroke-width="1.5"/>
+      <text x="405" y="174" class="pin-code" fill="#555">GND</text>
+
+      <circle cx="300" cy="230" r="4" fill="#555"/>
+      <line x1="300" y1="230" x2="400" y2="230" stroke="#555" stroke-width="1.5"/>
+      <text x="405" y="234" class="pin-code" fill="#555">3V3</text>
+
+      <circle cx="300" cy="290" r="4" fill="#1a56db"/>
+      <line x1="300" y1="290" x2="400" y2="290" stroke="#1a56db" stroke-width="1.5"/>
+      <text x="405" y="286" class="pin-code" fill="#1a56db">D10 / GPIO9</text>
+      <text x="405" y="299" class="pin-note">SPI MOSI (partagé)</text>
+
+      <circle cx="300" cy="350" r="4" fill="#999"/>
+      <line x1="300" y1="350" x2="400" y2="350" stroke="#999" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="405" y="346" class="pin-code" fill="#999">D9 / GPIO8</text>
+      <text x="405" y="359" class="pin-note">libre (MISO non utilisé)</text>
+
+      <circle cx="300" cy="410" r="4" fill="#1a56db"/>
+      <line x1="300" y1="410" x2="400" y2="410" stroke="#1a56db" stroke-width="1.5"/>
+      <text x="405" y="406" class="pin-code" fill="#1a56db">D8 / GPIO7</text>
+      <text x="405" y="419" class="pin-note">SPI SCK (partagé)</text>
+
+      <circle cx="300" cy="470" r="4" fill="#999"/>
+      <line x1="300" y1="470" x2="400" y2="470" stroke="#999" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="405" y="466" class="pin-code" fill="#999">D7 / GPIO44</text>
+      <text x="405" y="479" class="pin-note">libre (réservé, ex. batterie)</text>
+    </g>
+
+    <!-- Legend panel 1 -->
+    <g class="legend">
+      <rect x="60" y="580" width="12" height="12" fill="#1a56db"/>
+      <text x="78" y="590">SPI partagé (MOSI/SCK)</text>
+      <rect x="60" y="600" width="12" height="12" fill="#0f766e"/>
+      <text x="78" y="610">DC partagé</text>
+      <rect x="260" y="580" width="12" height="12" fill="#b45309"/>
+      <text x="278" y="590">CS (dédié / écran)</text>
+      <rect x="260" y="600" width="12" height="12" fill="#7c3aed"/>
+      <text x="278" y="610">RST (dédié / écran)</text>
+      <rect x="60" y="620" width="12" height="12" fill="#dc2626"/>
+      <text x="78" y="630">Bouton poussoir</text>
+      <rect x="260" y="620" width="12" height="12" fill="#999"/>
+      <text x="278" y="630">Libre / réservé</text>
+    </g>
+  </g>
+
+  <!-- Divider -->
+  <line x1="720" y1="20" x2="720" y2="650" stroke="#ccc" stroke-width="1"/>
+
+  <!-- ============ PANEL 2 : câblage logique vers les écrans (decale de +280px) ============ -->
+  <g transform="translate(280,0)">
+    <text x="820" y="30" class="title" text-anchor="middle">Câblage — quel signal vers quel écran</text>
+
+    <!-- ESP32 box -->
+    <rect x="480" y="140" width="160" height="340" rx="12" fill="#f6f5f0" stroke="#222" stroke-width="2"/>
+    <text x="560" y="165" class="box-title" text-anchor="middle">ESP32-S3 Mini</text>
+
+    <g class="code">
+      <text x="630" y="186" text-anchor="end" class="pin-code" fill="#1a56db">D10/GPIO9 MOSI</text>
+      <text x="630" y="226" text-anchor="end" class="pin-code" fill="#1a56db">D8/GPIO7 SCK</text>
+      <text x="630" y="266" text-anchor="end" class="pin-code" fill="#0f766e">D2/GPIO3 DC</text>
+      <text x="630" y="306" text-anchor="end" class="pin-code" fill="#b45309">D0/GPIO1 CS_G</text>
+      <text x="630" y="346" text-anchor="end" class="pin-code" fill="#7c3aed">D3/GPIO4 RST_G</text>
+      <text x="630" y="386" text-anchor="end" class="pin-code" fill="#b45309">D1/GPIO2 CS_D</text>
+      <text x="630" y="426" text-anchor="end" class="pin-code" fill="#7c3aed">D4/GPIO5 RST_D</text>
+      <text x="630" y="466" text-anchor="end" class="pin-code" fill="#dc2626">D5/GPIO6 BTN</text>
+    </g>
+
+    <!-- Destination boxes -->
+    <rect x="920" y="60" width="240" height="190" rx="10" fill="#f6f5f0" stroke="#222" stroke-width="2"/>
+    <text x="1040" y="85" class="box-title" text-anchor="middle">Écran GAUCHE — ST7735S 128×160</text>
+
+    <rect x="920" y="290" width="240" height="190" rx="10" fill="#f6f5f0" stroke="#222" stroke-width="2"/>
+    <text x="1040" y="315" class="box-title" text-anchor="middle">Écran DROIT — ST7735S 128×160</text>
+
+    <rect x="920" y="520" width="240" height="70" rx="10" fill="#f6f5f0" stroke="#222" stroke-width="2"/>
+    <text x="1040" y="545" class="box-title" text-anchor="middle">Bouton poussoir</text>
+    <text x="1040" y="565" class="pin-note" text-anchor="middle">autre patte → GND (pull-up interne)</text>
+
+    <!-- Entry point circles + labels : Écran gauche (SDA,SCL,DC,CS,RST) -->
+    <g>
+      <circle cx="920" cy="112" r="3.5" fill="#1a56db"/>
+      <text x="930" y="116" class="entry-label" fill="#1a56db">SDA</text>
+      <circle cx="920" cy="140" r="3.5" fill="#1a56db"/>
+      <text x="930" y="144" class="entry-label" fill="#1a56db">SCL</text>
+      <circle cx="920" cy="168" r="3.5" fill="#0f766e"/>
+      <text x="930" y="172" class="entry-label" fill="#0f766e">DC</text>
+      <circle cx="920" cy="196" r="3.5" fill="#b45309"/>
+      <text x="930" y="200" class="entry-label" fill="#b45309">CS</text>
+      <circle cx="920" cy="224" r="3.5" fill="#7c3aed"/>
+      <text x="930" y="228" class="entry-label" fill="#7c3aed">RST</text>
+    </g>
+
+    <!-- Entry point circles + labels : Écran droit -->
+    <g>
+      <circle cx="920" cy="342" r="3.5" fill="#1a56db"/>
+      <text x="930" y="346" class="entry-label" fill="#1a56db">SDA</text>
+      <circle cx="920" cy="370" r="3.5" fill="#1a56db"/>
+      <text x="930" y="374" class="entry-label" fill="#1a56db">SCL</text>
+      <circle cx="920" cy="398" r="3.5" fill="#0f766e"/>
+      <text x="930" y="402" class="entry-label" fill="#0f766e">DC</text>
+      <circle cx="920" cy="426" r="3.5" fill="#b45309"/>
+      <text x="930" y="430" class="entry-label" fill="#b45309">CS</text>
+      <circle cx="920" cy="454" r="3.5" fill="#7c3aed"/>
+      <text x="930" y="458" class="entry-label" fill="#7c3aed">RST</text>
+    </g>
+
+    <circle cx="920" cy="555" r="3.5" fill="#dc2626"/>
+
+    <!-- Wires -->
+    <g fill="none" stroke-width="1.75">
+      <line x1="640" y1="190" x2="920" y2="112" stroke="#1a56db" marker-end="url(#arrow)"/>
+      <line x1="640" y1="190" x2="920" y2="342" stroke="#1a56db" marker-end="url(#arrow)"/>
+      <line x1="640" y1="230" x2="920" y2="140" stroke="#1a56db" marker-end="url(#arrow)"/>
+      <line x1="640" y1="230" x2="920" y2="370" stroke="#1a56db" marker-end="url(#arrow)"/>
+      <line x1="640" y1="270" x2="920" y2="168" stroke="#0f766e" marker-end="url(#arrow)"/>
+      <line x1="640" y1="270" x2="920" y2="398" stroke="#0f766e" marker-end="url(#arrow)"/>
+      <line x1="640" y1="310" x2="920" y2="196" stroke="#b45309" marker-end="url(#arrow)"/>
+      <line x1="640" y1="350" x2="920" y2="224" stroke="#7c3aed" marker-end="url(#arrow)"/>
+      <line x1="640" y1="390" x2="920" y2="426" stroke="#b45309" marker-end="url(#arrow)"/>
+      <line x1="640" y1="430" x2="920" y2="454" stroke="#7c3aed" marker-end="url(#arrow)"/>
+      <line x1="640" y1="470" x2="920" y2="555" stroke="#dc2626" marker-end="url(#arrow)"/>
+    </g>
+
+    <!-- Legend panel 2 -->
+    <g class="legend">
+      <rect x="480" y="600" width="12" height="12" fill="#1a56db"/>
+      <text x="498" y="610">SPI partagé (MOSI + SCK)</text>
+      <rect x="480" y="620" width="12" height="12" fill="#0f766e"/>
+      <text x="498" y="630">DC (partagé)</text>
+      <rect x="750" y="600" width="12" height="12" fill="#b45309"/>
+      <text x="768" y="610">CS (1 par écran, non partagé)</text>
+      <rect x="750" y="620" width="12" height="12" fill="#7c3aed"/>
+      <text x="768" y="630">RST (1 par écran, non partagé)</text>
+    </g>
+
+    <text x="600" y="655" font-size="11" fill="#555" text-anchor="middle">
+      Alimentation (3V3 / GND) et rétroéclairage (BLK, si présent → 3V3) non représentés ci-dessus : communs aux 2 écrans, voir le tableau §2.1.
+    </text>
+  </g>
+
+  <!-- ============ PANEL 3 : connecteur physique des écrans ============ -->
+  <line x1="40" y1="685" x2="1440" y2="685" stroke="#ccc" stroke-width="1"/>
+  <text x="740" y="705" class="title" text-anchor="middle">Connecteur des écrans — vu de dessus, broches en haut (identique pour les 2 écrans)</text>
+
+  <rect x="320" y="750" width="840" height="20" rx="4" fill="#e5e5e0" stroke="#222" stroke-width="1.5"/>
+
+  <g class="code">
+    <!-- GND -->
+    <line x1="340" y1="750" x2="340" y2="743" stroke="#555" stroke-width="1.5"/>
+    <circle cx="340" cy="760" r="4" fill="#555"/>
+    <line x1="340" y1="770" x2="340" y2="785" stroke="#555" stroke-width="1.5"/>
+    <text x="340" y="738" class="conn-label" text-anchor="middle" fill="#555">GND</text>
+    <text x="340" y="797" class="conn-dest" text-anchor="middle">GND</text>
+
+    <!-- VCC -->
+    <line x1="454.3" y1="750" x2="454.3" y2="743" stroke="#555" stroke-width="1.5"/>
+    <circle cx="454.3" cy="760" r="4" fill="#555"/>
+    <line x1="454.3" y1="770" x2="454.3" y2="785" stroke="#555" stroke-width="1.5"/>
+    <text x="454.3" y="738" class="conn-label" text-anchor="middle" fill="#555">VCC</text>
+    <text x="454.3" y="797" class="conn-dest" text-anchor="middle">3V3</text>
+
+    <!-- SCL -->
+    <line x1="568.6" y1="750" x2="568.6" y2="743" stroke="#1a56db" stroke-width="1.5"/>
+    <circle cx="568.6" cy="760" r="4" fill="#1a56db"/>
+    <line x1="568.6" y1="770" x2="568.6" y2="785" stroke="#1a56db" stroke-width="1.5"/>
+    <text x="568.6" y="738" class="conn-label" text-anchor="middle" fill="#1a56db">SCL</text>
+    <text x="568.6" y="797" class="conn-dest" text-anchor="middle">D8 (SCK)</text>
+    <text x="568.6" y="809" class="conn-dest" text-anchor="middle">partagé</text>
+
+    <!-- SDA -->
+    <line x1="682.9" y1="750" x2="682.9" y2="743" stroke="#1a56db" stroke-width="1.5"/>
+    <circle cx="682.9" cy="760" r="4" fill="#1a56db"/>
+    <line x1="682.9" y1="770" x2="682.9" y2="785" stroke="#1a56db" stroke-width="1.5"/>
+    <text x="682.9" y="738" class="conn-label" text-anchor="middle" fill="#1a56db">SDA</text>
+    <text x="682.9" y="797" class="conn-dest" text-anchor="middle">D10 (MOSI)</text>
+    <text x="682.9" y="809" class="conn-dest" text-anchor="middle">partagé</text>
+
+    <!-- RST -->
+    <line x1="797.1" y1="750" x2="797.1" y2="743" stroke="#7c3aed" stroke-width="1.5"/>
+    <circle cx="797.1" cy="760" r="4" fill="#7c3aed"/>
+    <line x1="797.1" y1="770" x2="797.1" y2="785" stroke="#7c3aed" stroke-width="1.5"/>
+    <text x="797.1" y="738" class="conn-label" text-anchor="middle" fill="#7c3aed">RST</text>
+    <text x="797.1" y="797" class="conn-dest" text-anchor="middle">D3 Gauche</text>
+    <text x="797.1" y="809" class="conn-dest" text-anchor="middle">D4 Droit</text>
+
+    <!-- DC -->
+    <line x1="911.4" y1="750" x2="911.4" y2="743" stroke="#0f766e" stroke-width="1.5"/>
+    <circle cx="911.4" cy="760" r="4" fill="#0f766e"/>
+    <line x1="911.4" y1="770" x2="911.4" y2="785" stroke="#0f766e" stroke-width="1.5"/>
+    <text x="911.4" y="738" class="conn-label" text-anchor="middle" fill="#0f766e">DC</text>
+    <text x="911.4" y="797" class="conn-dest" text-anchor="middle">D2</text>
+    <text x="911.4" y="809" class="conn-dest" text-anchor="middle">partagé</text>
+
+    <!-- CS -->
+    <line x1="1025.7" y1="750" x2="1025.7" y2="743" stroke="#b45309" stroke-width="1.5"/>
+    <circle cx="1025.7" cy="760" r="4" fill="#b45309"/>
+    <line x1="1025.7" y1="770" x2="1025.7" y2="785" stroke="#b45309" stroke-width="1.5"/>
+    <text x="1025.7" y="738" class="conn-label" text-anchor="middle" fill="#b45309">CS</text>
+    <text x="1025.7" y="797" class="conn-dest" text-anchor="middle">D0 Gauche</text>
+    <text x="1025.7" y="809" class="conn-dest" text-anchor="middle">D1 Droit</text>
+
+    <!-- BL -->
+    <line x1="1140" y1="750" x2="1140" y2="743" stroke="#555" stroke-width="1.5"/>
+    <circle cx="1140" cy="760" r="4" fill="#555"/>
+    <line x1="1140" y1="770" x2="1140" y2="785" stroke="#555" stroke-width="1.5"/>
+    <text x="1140" y="738" class="conn-label" text-anchor="middle" fill="#555">BL</text>
+    <text x="1140" y="797" class="conn-dest" text-anchor="middle">3V3 (fixe)</text>
+  </g>
+
+  <text x="740" y="840" font-size="11" fill="#555" text-anchor="middle">
+    Ordre des broches sur le module, de gauche à droite : GND · VCC · SCL · SDA · RST · DC · CS · BL.
+    Seuls RST et CS diffèrent entre l'écran Gauche et l'écran Droit — tous les autres signaux sont identiques.
+  </text>
+</svg>

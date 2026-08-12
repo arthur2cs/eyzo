@@ -139,7 +139,7 @@ En-tête commun à chaque paquet (chunk) :
 
 | CMD | Nom | Description |
 |---|---|---|
-| `0x01` | `SET_TEXT` | Envoi d'un texte défilant (non chunké en général, texte court) |
+| `0x01` | `SET_TEXT` | Envoi d'un texte défilant, sous forme de bitmap déjà rendu côté app (chunké) |
 | `0x02` | `SET_STATIC_IMAGE` | Envoi d'une image statique (chunké) |
 | `0x03` | `SET_ANIMATION_FRAME` | Envoi d'une frame d'animation (chunké, répété par frame) |
 | `0x04` | `CLEAR_SCREEN` | Efface l'écran cible |
@@ -148,16 +148,36 @@ En-tête commun à chaque paquet (chunk) :
 
 #### Payload `SET_TEXT`
 
+Le texte est rendu **côté app** en bitmap RGB565, avec la police/taille/couleur
+exactement telles que dans l'aperçu de composition (voir
+`text_bitmap_renderer.dart`) : le firmware ne rend plus aucune police
+lui-même, il se contente d'afficher/défiler ce bitmap tel quel. Ceci élimine
+l'écart entre l'aperçu app et le rendu réel sur les lunettes (police interne
+ESP32 différente, mapping de taille grossier).
+
 | Octets | Champ |
 |---|---|
-| 1 | `font_id` |
-| 1 | `size` |
-| 2 | `color_fg` (RGB565 LE) |
-| 2 | `color_bg` (RGB565 LE) |
-| 1 | `speed` (niveau 1–10) |
 | 1 | `direction` (0=gauche, 1=droite, 2=statique, 3=clignotant) |
-| 2 | `text_len` (uint16 LE) |
-| N | texte UTF-8 |
+| 1 | `speed` (niveau 1–10) |
+| 2 | `color_bg` (RGB565 LE) |
+| 2 | `width` (uint16 LE) |
+| 1 | `height` (toujours égal à la hauteur native de l'écran, 128) |
+| 1 | `format` (0=brut, 1=compressé zlib — voir "Compression" ci-dessous) |
+| N | pixels RGB565 big-endian, row-major (`width * height * 2` octets si `format=0` ; sinon flux zlib de ces mêmes octets) |
+
+- `direction` statique/clignotant : bitmap **plein écran** (`width` = 160,
+  `height` = 128), fond déjà peint dedans — le firmware l'affiche/le masque
+  tel quel (clignotement) sans autre calcul.
+- `direction` défilement : bitmap resserré sur le texte seul (`width` =
+  largeur réelle du texte rendu, `height` = 128) — le firmware repeint le
+  fond avec `color_bg` à chaque pas et y positionne une fenêtre glissante du
+  bitmap (translation pure, pas de nouveau rendu de police), exactement comme
+  il le faisait déjà pour le défilement du texte natif.
+- Un bitmap de texte peut peser nettement plus qu'une image plein écran pour
+  un message long à grande taille de police (limite : voir `maxPayloadSize`
+  côté app / `MAX_PAYLOAD_SIZE` côté firmware, ~250 Ko, mesurée **avant**
+  compression) — l'app rejette l'envoi avant transmission si ce plafond est
+  dépassé plutôt que de laisser un transfert BLE de plusieurs minutes.
 
 **Mode séquentiel (`SCREEN = 0x03`, `SET_TEXT` uniquement)** : les 2 écrans sont traités par le firmware comme une seule bande de défilement continue (largeur virtuelle = 2x la largeur d'un écran), au lieu de dupliquer le même texte sur chaque écran indépendamment. L'écran de départ dépend du champ `direction` de ce même payload :
 - `direction = 0` (défilement ←) : le texte entre par l'écran **Gauche** et sort par l'écran **Droit**.
@@ -172,11 +192,34 @@ En-tête commun à chaque paquet (chunk) :
 |---|---|
 | 1 | `width` (résolution de travail, ex: ≤ 64) |
 | 1 | `height` |
+| 1 | `format` (0=brut, 1=compressé zlib — voir "Compression" ci-dessous) |
 | 1 | `frame_index` (uniquement pour animation) |
 | 1 | `total_frames` (uniquement pour animation) |
 | 2 | `frame_delay_ms` (uniquement pour animation) |
-| 2 | `pixel_len` |
-| N | pixels RGB565 (row-major), répartis sur plusieurs chunks selon `SEQ`/`TOTAL` |
+| 2 | `pixel_len` (longueur de `pixels` **telle que transmise**, donc après compression si `format=1`) |
+| N | `pixels` : RGB565 (row-major) si `format=0` ; sinon flux zlib de ces mêmes octets — répartis sur plusieurs chunks selon `SEQ`/`TOTAL` |
+
+#### Compression (`format`, `SET_TEXT`/`SET_STATIC_IMAGE`/`SET_ANIMATION_FRAME`)
+
+Les pixels RGB565 peuvent être envoyés compressés en **zlib/deflate
+(RFC1950)** plutôt que bruts, pour réduire le nombre de chunks BLE à
+transmettre (le débit BLE, pas le rendu, domine le temps d'envoi pour un
+message un peu long — voir §9). Le champ `format` (0=brut, 1=zlib) précède
+les pixels dans chaque payload concerné ; la taille décompressée attendue
+n'est jamais retransmise séparément, elle se déduit toujours de
+`width * height * 2` déjà présent dans le même payload.
+
+- **App** (`packet_builder.dart`) : compression avec `package:archive`
+  (`ZLibEncoder`) ; n'est utilisée que si elle réduit effectivement la taille
+  transmise, sinon repli sur `format=0` (brut) — jamais de régression de
+  taille pour un contenu peu compressible (ex. image très texturée/bruitée).
+- **Firmware** (`ble_manager.cpp`) : décompression avec la lib `zlib_turbo`
+  (voir `firmware/README.md`) avant transmission à `display_manager.cpp`, qui
+  ne voit donc jamais de données compressées. Rejet (`NACK`, `ERR_DECOMPRESS`)
+  si la décompression échoue ou ne produit pas exactement la taille attendue.
+- Le gain est le plus net sur les bitmaps de texte (fond uni + quelques
+  glyphes) mais reste généralement positif sur les images/GIFs importés
+  (résolution de travail réduite, palettes limitées, voir §4.5).
 
 > Le firmware reçoit l'image en basse résolution (grille de l'éditeur) et effectue l'**upscale nearest-neighbor** vers les 160x128 réels de l'écran ST7735S (orientation paysage), afin de limiter le volume de données transmis en BLE (une image plein format 160x128 en RGB565 pèse ~40 Ko, ce qui reste lourd pour une transmission fluide en BLE, surtout pour des animations multi-frames).
 
@@ -217,7 +260,7 @@ En-tête commun à chaque paquet (chunk) :
 - **UUID GATT** : valeurs d'exemple à figer définitivement avec le développement du firmware.
 - **Débit BLE** : à mesurer en conditions réelles pour calibrer la résolution max de travail de l'éditeur/import (40x32, 80x64, ou plus) sans dégrader l'expérience (temps d'envoi trop long).
 - **Lecture batterie** : dépend d'un ajout matériel (pont diviseur) sur le XIAO ESP32S3, non garanti par défaut.
-- **Rendu texte sur écran** : le firmware devra embarquer les polices bitmap sélectionnables (font_id) — liste des polices à définir conjointement.
+- **Rendu texte sur écran** : le texte est rendu en bitmap côté app (voir §6.3) plutôt que par des polices embarquées firmware — fidèle à l'aperçu par construction, au prix d'un payload BLE plus lourd pour les messages longs/grande taille de police en mode défilement (plafonné, voir `maxPayloadSize`).
 - **Deux écrans SPI simultanés** : sujet firmware/hardware (bus SPI partagé ou non), sans impact direct sur l'app tant que le contrat `SCREEN` (gauche/droit/simultané/séquentiel) est respecté.
 - **Mode séquentiel** : la convention départ/arrivée selon la direction (voir §6.3) est un choix documenté côté app, à valider/ajuster une fois le rendu réel testé sur le firmware — c'est le firmware qui implémente concrètement le rendu "bande continue" à travers les 2 écrans.
 - **Insertion GIF clavier** : dépend du clavier utilisé (Gboard le supporte via `commitContent` ; certains claviers tiers peuvent ne pas l'implémenter, auquel cas seul l'import galerie reste disponible). Comportement à valider sur plusieurs claviers/appareils réels.
