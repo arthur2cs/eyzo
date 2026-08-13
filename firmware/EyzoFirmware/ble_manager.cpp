@@ -148,7 +148,7 @@ bool decompressPixels(const uint8_t *src, uint32_t srcLen, uint32_t expectedLen,
 }
 
 // Résout le couple (format, data) d'un payload SET_TEXT/SET_STATIC_IMAGE/
-// SET_ANIMATION_FRAME (voir protocol.h) en pixels RGB565 bruts exploitables
+// SET_ANIMATION (voir protocol.h) en pixels RGB565 bruts exploitables
 // par DisplayManager, décompressant au besoin. Envoie le NACK approprié et
 // renvoie false en cas d'échec (format inconnu, longueur brute incohérente
 // avec width*height, décompression invalide).
@@ -206,55 +206,54 @@ void dispatch(uint8_t cmd, uint8_t screen, const uint8_t *payload, uint32_t len)
       break;
     }
     case EyzoProtocol::CMD_SET_STATIC_IMAGE: {
-      if (len < 9) {
+      if (len < 5) {
         sendNack(cmd, screen, EyzoProtocol::ERR_OVERFLOW);
         return;
       }
       uint8_t width = payload[0];
       uint8_t height = payload[1];
       uint8_t format = payload[2];
-      // payload[3]=frame_index, payload[4]=total_frames, payload[5..6]=frame_delay_ms :
-      // non utilisés pour une image statique (voir specs.md §6.3).
-      uint16_t dataLen = readU16LE(&payload[7]);
-      if (len < (uint32_t)(9 + dataLen)) {
+      uint16_t dataLen = readU16LE(&payload[3]);
+      if (len < (uint32_t)(5 + dataLen)) {
         sendNack(cmd, screen, EyzoProtocol::ERR_OVERFLOW);
         return;
       }
       const uint8_t *pixels;
       uint32_t pixelLen;
       uint32_t expectedLen = (uint32_t)width * height * 2;
-      if (!resolvePixels(cmd, screen, format, &payload[9], dataLen, expectedLen, &pixels,
+      if (!resolvePixels(cmd, screen, format, &payload[5], dataLen, expectedLen, &pixels,
                           &pixelLen)) {
         return;
       }
       DisplayManager::setStaticImage(screen, width, height, pixels, (uint16_t)pixelLen);
       break;
     }
-    case EyzoProtocol::CMD_SET_ANIMATION_FRAME: {
-      if (len < 9) {
+    case EyzoProtocol::CMD_SET_ANIMATION: {
+      // Toute l'animation en une seule commande (voir protocol.h) : plus de
+      // frame_index/total_frames, frame_count suffit puisque tout arrive
+      // d'un bloc.
+      if (len < 6) {
         sendNack(cmd, screen, EyzoProtocol::ERR_OVERFLOW);
         return;
       }
       uint8_t width = payload[0];
       uint8_t height = payload[1];
-      uint8_t format = payload[2];
-      uint8_t frameIndex = payload[3];
-      uint8_t totalFrames = payload[4];
-      uint16_t frameDelayMs = readU16LE(&payload[5]);
-      uint16_t dataLen = readU16LE(&payload[7]);
-      if (len < (uint32_t)(9 + dataLen)) {
+      uint8_t frameCount = payload[2];
+      uint16_t frameDelayMs = readU16LE(&payload[3]);
+      uint8_t format = payload[5];
+      if (width == 0 || height == 0 || frameCount == 0 || frameCount > MAX_ANIMATION_FRAMES) {
         sendNack(cmd, screen, EyzoProtocol::ERR_OVERFLOW);
         return;
       }
       const uint8_t *pixels;
       uint32_t pixelLen;
-      uint32_t expectedLen = (uint32_t)width * height * 2;
-      if (!resolvePixels(cmd, screen, format, &payload[9], dataLen, expectedLen, &pixels,
+      uint32_t expectedLen = (uint32_t)width * height * 2 * frameCount;
+      if (!resolvePixels(cmd, screen, format, &payload[6], len - 6, expectedLen, &pixels,
                           &pixelLen)) {
         return;
       }
-      DisplayManager::setAnimationFrame(screen, width, height, frameIndex, totalFrames,
-                                         frameDelayMs, pixels, (uint16_t)pixelLen);
+      DisplayManager::setAnimation(screen, width, height, frameCount, frameDelayMs, pixels,
+                                    pixelLen);
       break;
     }
     case EyzoProtocol::CMD_CLEAR_SCREEN:

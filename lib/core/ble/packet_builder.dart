@@ -67,54 +67,77 @@ class EyzoPacketBuilder {
   }
 
   static List<Uint8List> setStaticImage(TargetScreen screen, PixelFrame frame) {
-    final payload = _imagePayload(
-      frame: frame,
-      frameIndex: 0,
-      totalFrames: 1,
-      frameDelayMs: 0,
-    );
+    final (format, data) = _encodePixels(frame.pixelsRgb565);
+
+    final payload = BytesBuilder();
+    payload.addByte(frame.width);
+    payload.addByte(frame.height);
+    payload.addByte(format);
+    payload.add(_uint16le(data.length));
+    payload.add(data);
+
     return _chunk(
       cmd: EyzoProtocol.cmdSetStaticImage,
       screen: screen,
-      payload: payload,
+      payload: payload.toBytes(),
     );
   }
 
-  static List<Uint8List> _setAnimationFrame(
-    TargetScreen screen,
-    PixelFrame frame, {
-    required int frameIndex,
-    required int totalFrames,
-    required int frameDelayMs,
-  }) {
-    final payload = _imagePayload(
-      frame: frame,
-      frameIndex: frameIndex,
-      totalFrames: totalFrames,
-      frameDelayMs: frameDelayMs,
-    );
-    return _chunk(
-      cmd: EyzoProtocol.cmdSetAnimationFrame,
-      screen: screen,
-      payload: payload,
-    );
-  }
-
-  /// Une entrée de la liste retournée = l'ensemble des chunks BLE d'une frame de l'animation.
-  static List<List<Uint8List>> setAnimation(
+  /// Compresse toute l'animation **en un seul bloc** (une seule commande BLE)
+  /// plutôt que frame par frame : zlib peut alors référencer les frames
+  /// voisines, souvent très similaires d'une frame à l'autre pour un GIF
+  /// (fond fixe, petite partie qui bouge), ce qu'une compression indépendante
+  /// par frame ne permet jamais d'exploiter — et une seule commande au lieu
+  /// d'une par frame réduit d'autant le nombre d'allers-retours BLE (voir
+  /// specs.md §6.3/§9).
+  static List<Uint8List> setAnimation(
     TargetScreen screen,
     PixelAnimation animation,
   ) {
-    return [
-      for (var i = 0; i < animation.frames.length; i++)
-        _setAnimationFrame(
-          screen,
-          animation.frames[i],
-          frameIndex: i,
-          totalFrames: animation.frames.length,
-          frameDelayMs: animation.frameDelayMs,
-        ),
-    ];
+    final frames = animation.frames;
+    if (frames.isEmpty) return [];
+
+    final width = frames.first.width;
+    final height = frames.first.height;
+    final frameCount = frames.length;
+    if (frameCount > EyzoProtocol.maxAnimationFrames) {
+      throw ArgumentError(
+        'Trop de frames pour être envoyées ($frameCount, max '
+        '${EyzoProtocol.maxAnimationFrames}).',
+      );
+    }
+
+    final frameBytes = width * height * 2;
+    final rawLen = 6 + frameBytes * frameCount;
+    if (rawLen > EyzoProtocol.maxPayloadSize) {
+      throw ArgumentError(
+        'Animation trop volumineuse pour être envoyée ($rawLen octets) : '
+        'réduisez la résolution de travail ou le nombre de frames.',
+      );
+    }
+
+    final rawPixels = Uint8List(frameBytes * frameCount);
+    var offset = 0;
+    for (final frame in frames) {
+      rawPixels.setRange(offset, offset + frameBytes, frame.pixelsRgb565);
+      offset += frameBytes;
+    }
+
+    final (format, data) = _encodePixels(rawPixels);
+
+    final payload = BytesBuilder();
+    payload.addByte(width);
+    payload.addByte(height);
+    payload.addByte(frameCount);
+    payload.add(_uint16le(animation.frameDelayMs));
+    payload.addByte(format);
+    payload.add(data);
+
+    return _chunk(
+      cmd: EyzoProtocol.cmdSetAnimation,
+      screen: screen,
+      payload: payload.toBytes(),
+    );
   }
 
   static Uint8List clearScreen(TargetScreen screen) => _chunk(
@@ -134,29 +157,6 @@ class EyzoPacketBuilder {
     screen: TargetScreen.simultaneous,
     payload: Uint8List(0),
   ).first;
-
-  static Uint8List _imagePayload({
-    required PixelFrame frame,
-    required int frameIndex,
-    required int totalFrames,
-    required int frameDelayMs,
-  }) {
-    // pixel_len (uint16) reste dans ses bornes : la résolution de travail
-    // max (160x128, voir GlassesDisplay) donne 40 960 octets bruts, la
-    // compression ne peut que réduire ce chiffre.
-    final (format, data) = _encodePixels(frame.pixelsRgb565);
-
-    final payload = BytesBuilder();
-    payload.addByte(frame.width);
-    payload.addByte(frame.height);
-    payload.addByte(format);
-    payload.addByte(frameIndex);
-    payload.addByte(totalFrames);
-    payload.add(_uint16le(frameDelayMs));
-    payload.add(_uint16le(data.length));
-    payload.add(data);
-    return payload.toBytes();
-  }
 
   static List<Uint8List> _chunk({
     required int cmd,

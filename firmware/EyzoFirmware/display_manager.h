@@ -3,7 +3,7 @@
 
 // Pilotage des 2 écrans ST7735S (voir specs.md §2, §4.2-§4.4, §6.3).
 // Reçoit les commandes déjà décodées par ble_manager (payload d'un
-// SET_TEXT/SET_STATIC_IMAGE/SET_ANIMATION_FRAME complet, réassemblé) et gère
+// SET_TEXT/SET_STATIC_IMAGE/SET_ANIMATION complet, réassemblé) et gère
 // le rendu (statique, défilement, clignotant, animation multi-frames,
 // mode séquentiel 2 écrans en bande continue).
 namespace DisplayManager {
@@ -32,8 +32,10 @@ void setText(uint8_t screenByte, uint8_t direction, uint8_t speed, uint16_t colo
 void setStaticImage(uint8_t screenByte, uint8_t width, uint8_t height,
                      const uint8_t *pixelsRgb565, uint16_t pixelLen);
 
-void setAnimationFrame(uint8_t screenByte, uint8_t width, uint8_t height,
-                        uint8_t frameIndex, uint8_t totalFrames, uint16_t frameDelayMs,
-                        const uint8_t *pixelsRgb565, uint16_t pixelLen);
+// Toute l'animation en une fois (voir protocol.h : CMD_SET_ANIMATION) :
+// pixelsRgb565 contient les frameCount frames concaténées (chacune
+// width*height*2 octets), déjà décompressées si besoin par ble_manager.
+void setAnimation(uint8_t screenByte, uint8_t width, uint8_t height, uint8_t frameCount,
+                   uint16_t frameDelayMs, const uint8_t *pixelsRgb565, uint32_t pixelLen);
 
 }  // namespace DisplayManager

@@ -10,15 +10,18 @@ ce dossier qu'il faut ouvrir dans Arduino IDE (double-clic sur
 
 > Ce firmware a été **compilé avec succès** (`arduino-cli compile`, core
 > `esp32:esp32` v3.3.11, carte `XIAO_ESP32S3`, PSRAM=OPI) — 17 % flash / 12 %
-> RAM utilisés (dernière vérification, avec la lib `zlib_turbo` incluse pour
-> la décompression, voir §4). Le socle (écrans, bouton, connexion BLE,
-> affichage de texte non compressé) **a été validé sur le matériel réel** —
-> **important : nécessite l'option `PSRAM=OPI` activée dans Arduino IDE**
-> (`Outils > PSRAM > OPI PSRAM`), sans quoi le buffer de réassemblage BLE ne
-> s'alloue pas et toute commande échoue silencieusement (NACK jamais visible
-> côté app avant l'ajout de l'ACK/NACK applicatif, voir §5). La compression
-> zlib (§4) est en revanche **encore seulement validée à la compilation**,
-> pas encore testée sur le matériel réel.
+> RAM utilisés (dernière vérification). Le socle (écrans, bouton, connexion
+> BLE, envoi de texte et d'images compressés en zlib) **a été validé sur le
+> matériel réel** — **important : nécessite l'option `PSRAM=OPI` activée
+> dans Arduino IDE** (`Outils > PSRAM > OPI PSRAM`), sans quoi le buffer de
+> réassemblage BLE ne s'alloue pas et toute commande échoue silencieusement
+> (voir §5 sur l'ACK/NACK applicatif, désormais consommé côté app). Le
+> nouveau `SET_ANIMATION` (toutes les frames compressées ensemble en une
+> seule commande, voir §4) est en revanche **encore seulement validé à la
+> compilation**, pas encore testé sur le matériel réel — à valider en
+> priorité : la taille réelle des animations compressées, et que le
+> comportement "l'ancienne animation continue de tourner pendant la
+> réception de la nouvelle" se vérifie bien à l'usage.
 
 ## 1. Installation Arduino IDE
 
@@ -187,6 +190,20 @@ pratique qui compte pour l'usage "enceinte", mais à garder en tête.
   uni + quelques glyphes, très compressibles) et reste généralement positif
   sur les images/GIFs importés (résolution de travail réduite, palettes
   limitées), sans jamais dégrader la taille transmise dans le pire cas.
+- **`SET_ANIMATION`** : toute l'animation est envoyée en **une seule
+  commande** (une seule frame, chunkée, avant : autant de commandes que de
+  frames) — les frames sont concaténées puis compressées **ensemble** côté
+  app avant l'envoi, plutôt qu'indépendamment frame par frame. Ça laisse
+  zlib référencer les frames voisines dans sa fenêtre de compression, très
+  efficace pour un GIF/sticker typique (fond fixe, petite partie qui bouge),
+  et ça réduit d'autant le nombre d'allers-retours BLE (un seul accusé
+  applicatif pour toute l'animation). Côté firmware, `DisplayManager` stocke
+  toutes les frames décompressées dans un unique buffer PSRAM contigu
+  (`AnimationPlayer::combinedFrames`, voir `display_manager.cpp`) plutôt que
+  N buffers séparés — la mise à jour de ce player est atomique (reset puis
+  réaffectation en un bloc), donc l'animation précédemment affichée continue
+  de tourner normalement pendant toute la réception de la nouvelle, sans
+  geler ni passer par un écran noir intermédiaire.
 - **Réglages** (police/taille/couleurs/direction) : rendus **côté app** en
   bitmap RGB565 fidèle à l'aperçu (voir `text_bitmap_renderer.dart` et
   specs.md §6.3) — le firmware ne fait plus de rendu de police, il

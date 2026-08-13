@@ -30,13 +30,19 @@
 // voir README — "PSRAM: OPI PSRAM" à activer dans le menu Outils).
 #define MAX_ANIMATION_FRAMES 64
 
-// Taille max d'un payload réassemblé, voir ble_manager.cpp. Couvre une image
-// plein écran (160x128 RGB565 ≈ 41 Ko) et les bitmaps de texte défilant
-// envoyés par l'app (largeur variable selon la longueur du message et la
-// taille de police, hauteur fixe SCREEN_H, voir text_bitmap_renderer.dart
-// côté app) — buffer alloué en PSRAM (voir begin() dans ble_manager.cpp),
-// pas de quoi tenir dans la SRAM interne.
-#define MAX_PAYLOAD_SIZE 250000UL
+// Taille max d'un payload réassemblé (avant compression), voir
+// ble_manager.cpp — deux buffers de cette taille sont alloués en PSRAM
+// (réassemblage + décompression, voir begin()), pas de quoi tenir dans la
+// SRAM interne. Doit couvrir le plus gros cas d'usage app : une animation
+// complète (SET_ANIMATION, voir protocol.h) envoyée en un seul bloc,
+// frame_count x width x height x 2 octets — jusqu'à ~1,2 Mo pour la
+// résolution de travail native (160x128) au nombre de frames par défaut de
+// l'app (30, voir image_conversion.dart), avec de la marge. Une image
+// plein écran (~41 Ko) ou un bitmap de texte défilant tiennent très
+// largement dedans. 2 x cette taille (~3 Mo) laisse une marge confortable
+// sur les 8 Mo de PSRAM du XIAO ESP32S3 pour le reste (animations déjà
+// affichées sur les 2 écrans, canevas, pile BLE).
+#define MAX_PAYLOAD_SIZE 1500000UL
 
 // La lib zlib_turbo (voir ble_manager.cpp) fait des lectures/écritures non
 // alignées par mots de 32 bits pour accélérer la décompression : ses buffers

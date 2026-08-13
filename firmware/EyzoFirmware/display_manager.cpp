@@ -36,34 +36,49 @@ GFXcanvas16 canvasRight(SCREEN_W, SCREEN_H);
 
 enum class Mode : uint8_t { None, Text, StaticImage, Animation };
 
+// Animation reçue et décodée en une seule commande (SET_ANIMATION, voir
+// protocol.h) : toutes les frames arrivent concaténées dans un seul payload
+// (mieux compressible côté app — zlib peut référencer les frames voisines,
+// souvent très similaires d'une frame à l'autre, voir packet_builder.dart),
+// stockées ici dans un unique buffer PSRAM contigu plutôt que N buffers
+// séparés. Comme la mise à jour de ce player est désormais atomique (voir
+// applyAnimationToChannel : reset() puis réaffectation de tous les champs
+// se font en une seule fois, jamais visibles à moitié faits par la tâche
+// loop() qui ne fait que lire), l'ancienne animation continue de tourner
+// normalement pendant toute la durée de réception de la nouvelle — plus
+// besoin d'écran noir/gel intermédiaire.
 struct AnimationPlayer {
-  uint8_t *frames[MAX_ANIMATION_FRAMES] = {nullptr};
+  uint8_t *combinedFrames = nullptr;  // frames concaténées, RGB565 big-endian
   uint8_t frameWidth = 0, frameHeight = 0;
-  uint8_t frameCount = 0;      // total_frames annoncé par le payload
-  uint8_t framesReceived = 0;  // nb de frames distinctes effectivement reçues
+  uint8_t frameCount = 0;
   uint8_t currentFrame = 0;
   uint16_t frameDelayMs = 120;
   uint32_t lastFrameMs = 0;
 
-  // Vrai une fois l'écran passé au noir pendant qu'une animation est encore
-  // en cours de réception (voir updateAnimationChannel) : évite de rebliter
-  // du noir à chaque tour de loop() tant que le transfert n'est pas terminé.
-  bool clearedForLoad = false;
+  // Vrai une fois combinedFrames entièrement rempli et prêt à être joué —
+  // seul champ lu par updateAnimationChannel (tâche loop(), cœur 1) pendant
+  // qu'applyAnimationToChannel (tâche BLE, cœur 0) répare ce player ; mis à
+  // `false` en tout premier par reset() et à `true` en tout dernier, pour
+  // qu'il ne soit jamais observé dans un état à moitié reconstruit.
+  volatile bool ready = false;
+
+  const uint8_t *frameAt(uint8_t index) const {
+    if (!combinedFrames) return nullptr;
+    const uint32_t frameBytes = (uint32_t)frameWidth * frameHeight * 2;
+    return combinedFrames + (uint32_t)index * frameBytes;
+  }
 
   void reset() {
-    for (uint8_t i = 0; i < MAX_ANIMATION_FRAMES; i++) {
-      if (frames[i]) {
-        heap_caps_free(frames[i]);
-        frames[i] = nullptr;
-      }
+    ready = false;
+    if (combinedFrames) {
+      heap_caps_free(combinedFrames);
+      combinedFrames = nullptr;
     }
     frameWidth = 0;
     frameHeight = 0;
     frameCount = 0;
-    framesReceived = 0;
     currentFrame = 0;
     lastFrameMs = 0;
-    clearedForLoad = false;
   }
 };
 
@@ -249,33 +264,21 @@ void updateTextChannel(ScreenChannel &ch, Adafruit_ST7735 &tft, GFXcanvas16 &can
 
 void updateAnimationChannel(ScreenChannel &ch, Adafruit_ST7735 &tft, GFXcanvas16 &canvas) {
   AnimationPlayer &a = ch.anim;
-  // a.frameCount == 0 : applyAnimationFrameToChannel() (tâche BLE, cœur 0) a
-  // remis l'AnimationPlayer à zéro via reset() et n'a pas encore réaffecté
-  // frameCount à sa vraie valeur — fenêtre étroite mais réelle, cette
-  // fonction tournant en parallèle sur la tâche loop() (cœur 1). Sans ce
-  // garde-fou, "framesReceived < frameCount" vaut 0 < 0 = faux (donc ne
-  // retourne pas) et "% a.frameCount" plante (division par zéro, Guru
-  // Meditation IntegerDivideByZero).
-  if (a.frameCount == 0 || a.framesReceived < a.frameCount) {
-    // Transfert d'une nouvelle animation encore en cours : écran noir une
-    // fois plutôt que de garder affichée, figée, la dernière frame de
-    // l'ancienne animation pendant toute la durée du transfert (qui peut
-    // prendre plusieurs minutes pour un GIF, voir specs.md §9). Fait ici
-    // (tâche loop(), cœur 1) et non depuis le callback BLE : c'est cette
-    // tâche qui possède déjà canvas/tft, pas de risque d'accès concurrent
-    // au bus SPI.
-    if (!a.clearedForLoad) {
-      canvas.fillScreen(ST77XX_BLACK);
-      blit(tft, canvas);
-      a.clearedForLoad = true;
-    }
-    return;
-  }
+  // a.ready ne devient jamais vrai avant que frameCount/combinedFrames ne
+  // soient valides (voir applyAnimationToChannel) : ce garde-fou suffit à
+  // la fois à ne rien afficher tant qu'une animation n'est pas reçue en
+  // entier et à éviter tout "% a.frameCount" avec frameCount == 0 (Guru
+  // Meditation IntegerDivideByZero, déjà rencontré avec l'ancien design
+  // frame-par-frame). L'ancienne animation reste affichée et continue de
+  // tourner normalement pendant ce temps : rien ici ne touche `a` avant que
+  // la nouvelle soit prête (voir commentaire sur AnimationPlayer).
+  if (!a.ready || a.frameCount == 0) return;
   uint32_t now = millis();
   if (now - a.lastFrameMs < a.frameDelayMs) return;
   a.lastFrameMs = now;
-  if (a.frames[a.currentFrame]) {
-    upscaleNearestToCanvas(canvas, a.frames[a.currentFrame], a.frameWidth, a.frameHeight);
+  const uint8_t *frame = a.frameAt(a.currentFrame);
+  if (frame) {
+    upscaleNearestToCanvas(canvas, frame, a.frameWidth, a.frameHeight);
     blit(tft, canvas);
   }
   a.currentFrame = (a.currentFrame + 1) % a.frameCount;
@@ -415,27 +418,19 @@ void applyStaticImageToChannel(ScreenChannel &ch, uint8_t width, uint8_t height,
   ch.needsRedraw = true;
 }
 
-void applyAnimationFrameToChannel(ScreenChannel &ch, uint8_t width, uint8_t height,
-                                   uint8_t frameIndex, uint8_t totalFrames,
-                                   uint16_t frameDelayMs, const uint8_t *pixels,
-                                   uint16_t pixelLen) {
-  if (ch.mode != Mode::Animation || frameIndex == 0) {
-    // (Re)démarrage d'une animation : on jette l'éventuel état précédent.
-    ch.anim.reset();
-    ch.freeStatic();
-    ch.freeTextBitmap();
-    ch.mode = Mode::Animation;
-    ch.anim.frameWidth = width;
-    ch.anim.frameHeight = height;
-    ch.anim.frameCount = totalFrames == 0 ? 1 : totalFrames;
-    ch.anim.frameDelayMs = frameDelayMs == 0 ? 1 : frameDelayMs;
-    ch.anim.currentFrame = 0;
-    ch.anim.lastFrameMs = millis();
-  }
-  if (frameIndex >= MAX_ANIMATION_FRAMES) {
-    Serial.println("[Display] frame_index hors limite (MAX_ANIMATION_FRAMES), ignoree");
-    return;
-  }
+void applyAnimationToChannel(ScreenChannel &ch, uint8_t width, uint8_t height,
+                              uint8_t frameCount, uint16_t frameDelayMs, const uint8_t *pixels,
+                              uint32_t pixelLen) {
+  // Toute l'animation arrive déjà réassemblée et décompressée d'un bloc
+  // (voir ble_manager.cpp) : on ne touche `ch.anim`/`ch.mode` qu'une fois
+  // ici, jamais entre-temps pendant la réception BLE — l'ancienne animation
+  // continue donc de tourner normalement sur cette voie jusqu'à cet instant
+  // précis (voir commentaire sur AnimationPlayer).
+  ch.anim.reset();  // ready=false en premier : plus rien affiché tant que le nouveau buffer n'est pas prêt
+  ch.freeStatic();
+  ch.freeTextBitmap();
+  ch.mode = Mode::Animation;
+
   // Frames stockées en PSRAM à leur résolution de travail brute (pas
   // d'upscale ici) : l'upscale nearest-neighbor est refait à chaque
   // affichage dans upscaleNearestToCanvas(), ce qui coûte peu de CPU et
@@ -444,13 +439,20 @@ void applyAnimationFrameToChannel(ScreenChannel &ch, uint8_t width, uint8_t heig
   uint8_t *buf = (uint8_t *)heap_caps_malloc(pixelLen, MALLOC_CAP_SPIRAM);
   if (!buf) buf = (uint8_t *)malloc(pixelLen);  // repli SRAM si PSRAM indisponible
   if (!buf) {
-    Serial.println("[Display] echec allocation frame animation (memoire insuffisante)");
+    Serial.println("[Display] echec allocation animation (memoire insuffisante)");
+    ch.mode = Mode::None;
     return;
   }
   memcpy(buf, pixels, pixelLen);
-  if (ch.anim.frames[frameIndex]) heap_caps_free(ch.anim.frames[frameIndex]);
-  ch.anim.frames[frameIndex] = buf;
-  ch.anim.framesReceived++;
+
+  ch.anim.combinedFrames = buf;
+  ch.anim.frameWidth = width;
+  ch.anim.frameHeight = height;
+  ch.anim.frameCount = frameCount;
+  ch.anim.frameDelayMs = frameDelayMs == 0 ? 1 : frameDelayMs;
+  ch.anim.currentFrame = 0;
+  ch.anim.lastFrameMs = millis();
+  ch.anim.ready = true;  // en dernier : voir commentaire sur AnimationPlayer::ready
 }
 
 }  // namespace
@@ -582,19 +584,20 @@ void setStaticImage(uint8_t screenByte, uint8_t width, uint8_t height,
     applyStaticImageToChannel(s_right, width, height, pixelsRgb565, pixelLen);
 }
 
-void setAnimationFrame(uint8_t screenByte, uint8_t width, uint8_t height, uint8_t frameIndex,
-                        uint8_t totalFrames, uint16_t frameDelayMs, const uint8_t *pixelsRgb565,
-                        uint16_t pixelLen) {
+void setAnimation(uint8_t screenByte, uint8_t width, uint8_t height, uint8_t frameCount,
+                   uint16_t frameDelayMs, const uint8_t *pixelsRgb565, uint32_t pixelLen) {
   s_seq.active = false;
   s_seq.freeTextBitmap();
+  // Non exposé côté app pour cette commande (specs.md §6.3) : traité comme
+  // Simultané par sécurité plutôt que de laisser un comportement non défini.
   if (screenByte == EyzoProtocol::SCREEN_SEQUENTIAL) screenByte = EyzoProtocol::SCREEN_SIMULTANEOUS;
 
   if (screenByte == EyzoProtocol::SCREEN_LEFT || screenByte == EyzoProtocol::SCREEN_SIMULTANEOUS)
-    applyAnimationFrameToChannel(s_left, width, height, frameIndex, totalFrames, frameDelayMs,
-                                  pixelsRgb565, pixelLen);
+    applyAnimationToChannel(s_left, width, height, frameCount, frameDelayMs, pixelsRgb565,
+                             pixelLen);
   if (screenByte == EyzoProtocol::SCREEN_RIGHT || screenByte == EyzoProtocol::SCREEN_SIMULTANEOUS)
-    applyAnimationFrameToChannel(s_right, width, height, frameIndex, totalFrames, frameDelayMs,
-                                  pixelsRgb565, pixelLen);
+    applyAnimationToChannel(s_right, width, height, frameCount, frameDelayMs, pixelsRgb565,
+                             pixelLen);
 }
 
 }  // namespace DisplayManager

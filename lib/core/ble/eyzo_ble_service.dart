@@ -300,11 +300,11 @@ class EyzoBleService {
   }
 
   Future<void> sendAnimation(TargetScreen screen, PixelAnimation animation) {
-    return _runExclusive((generation) async {
-      final framePackets = EyzoPacketBuilder.setAnimation(screen, animation);
-      for (final chunks in framePackets) {
-        await _writeChunks(chunks, generation);
-      }
+    return _runExclusive((generation) {
+      return _writeChunks(
+        EyzoPacketBuilder.setAnimation(screen, animation),
+        generation,
+      );
     });
   }
 

@@ -141,7 +141,7 @@ En-tête commun à chaque paquet (chunk) :
 |---|---|---|
 | `0x01` | `SET_TEXT` | Envoi d'un texte défilant, sous forme de bitmap déjà rendu côté app (chunké) |
 | `0x02` | `SET_STATIC_IMAGE` | Envoi d'une image statique (chunké) |
-| `0x03` | `SET_ANIMATION_FRAME` | Envoi d'une frame d'animation (chunké, répété par frame) |
+| `0x03` | `SET_ANIMATION` | Envoi de l'animation complète — toutes les frames en une seule commande (chunké) |
 | `0x04` | `CLEAR_SCREEN` | Efface l'écran cible |
 | `0x05` | `PING` | Keep-alive |
 | `0x06` | `GET_STATUS` | Demande de statut (batterie, connexion écrans) |
@@ -175,39 +175,54 @@ ESP32 différente, mapping de taille grossier).
   il le faisait déjà pour le défilement du texte natif.
 - Un bitmap de texte peut peser nettement plus qu'une image plein écran pour
   un message long à grande taille de police (limite : voir `maxPayloadSize`
-  côté app / `MAX_PAYLOAD_SIZE` côté firmware, ~250 Ko, mesurée **avant**
-  compression) — l'app rejette l'envoi avant transmission si ce plafond est
-  dépassé plutôt que de laisser un transfert BLE de plusieurs minutes.
+  côté app / `MAX_PAYLOAD_SIZE` côté firmware, ~1,5 Mo — dimensionnée pour
+  couvrir le plus gros cas d'usage réel, une animation complète envoyée en
+  un seul bloc via `SET_ANIMATION`, mesurée **avant** compression) — l'app
+  rejette l'envoi avant transmission si ce plafond est dépassé plutôt que de
+  laisser un transfert BLE de plusieurs minutes.
 
 **Mode séquentiel (`SCREEN = 0x03`, `SET_TEXT` uniquement)** : les 2 écrans sont traités par le firmware comme une seule bande de défilement continue (largeur virtuelle = 2x la largeur d'un écran), au lieu de dupliquer le même texte sur chaque écran indépendamment. L'écran de départ dépend du champ `direction` de ce même payload :
 - `direction = 0` (défilement ←) : le texte entre par l'écran **Gauche** et sort par l'écran **Droit**.
 - `direction = 1` (défilement →) : le texte entre par l'écran **Droit** et sort par l'écran **Gauche**.
 - `direction = 2` (statique) ou `3` (clignotant) : pas de déplacement possible entre écrans — le firmware doit traiter `SCREEN = 0x03` comme équivalent à `0x02` (simultané) dans ce cas.
 
-`SCREEN = 0x03` n'est pas utilisé par `SET_STATIC_IMAGE` / `SET_ANIMATION_FRAME` (non exposé côté app pour ces commandes) ; comportement non défini si reçu par le firmware pour ces commandes.
+`SCREEN = 0x03` n'est pas utilisé par `SET_STATIC_IMAGE` / `SET_ANIMATION` (non exposé côté app pour ces commandes) ; comportement non défini si reçu par le firmware pour ces commandes.
 
-#### Payload `SET_STATIC_IMAGE` / `SET_ANIMATION_FRAME`
+#### Payload `SET_STATIC_IMAGE`
 
 | Octets | Champ |
 |---|---|
 | 1 | `width` (résolution de travail, ex: ≤ 64) |
 | 1 | `height` |
 | 1 | `format` (0=brut, 1=compressé zlib — voir "Compression" ci-dessous) |
-| 1 | `frame_index` (uniquement pour animation) |
-| 1 | `total_frames` (uniquement pour animation) |
-| 2 | `frame_delay_ms` (uniquement pour animation) |
-| 2 | `pixel_len` (longueur de `pixels` **telle que transmise**, donc après compression si `format=1`) |
-| N | `pixels` : RGB565 (row-major) si `format=0` ; sinon flux zlib de ces mêmes octets — répartis sur plusieurs chunks selon `SEQ`/`TOTAL` |
+| 2 | `data_len` (longueur de `data` **telle que transmise**, donc après compression si `format=1`) |
+| N | `data` : pixels RGB565 (row-major) si `format=0` ; sinon flux zlib de ces mêmes octets — répartis sur plusieurs chunks selon `SEQ`/`TOTAL` |
 
-#### Compression (`format`, `SET_TEXT`/`SET_STATIC_IMAGE`/`SET_ANIMATION_FRAME`)
+#### Payload `SET_ANIMATION`
+
+Toute l'animation part en **une seule commande** (plus un envoi par frame
+comme avant) : les frames sont concaténées puis compressées **ensemble**
+avant l'envoi, voir "Compression" ci-dessous.
+
+| Octets | Champ |
+|---|---|
+| 1 | `width` (résolution de travail, ex: ≤ 64) |
+| 1 | `height` |
+| 1 | `frame_count` |
+| 2 | `frame_delay_ms` (uniforme pour toute l'animation) |
+| 1 | `format` (0=brut, 1=compressé zlib — voir "Compression" ci-dessous) |
+| N | `data` : `frame_count` frames RGB565 (row-major) concaténées dans l'ordre si `format=0` ; sinon flux zlib de ces mêmes octets — répartis sur plusieurs chunks selon `SEQ`/`TOTAL` |
+
+#### Compression (`format`, `SET_TEXT`/`SET_STATIC_IMAGE`/`SET_ANIMATION`)
 
 Les pixels RGB565 peuvent être envoyés compressés en **zlib/deflate
 (RFC1950)** plutôt que bruts, pour réduire le nombre de chunks BLE à
 transmettre (le débit BLE, pas le rendu, domine le temps d'envoi pour un
 message un peu long — voir §9). Le champ `format` (0=brut, 1=zlib) précède
 les pixels dans chaque payload concerné ; la taille décompressée attendue
-n'est jamais retransmise séparément, elle se déduit toujours de
-`width * height * 2` déjà présent dans le même payload.
+n'est jamais retransmise séparément, elle se déduit toujours des champs déjà
+présents dans le même payload (`width * height * 2`, ou `width * height * 2
+* frame_count` pour `SET_ANIMATION`).
 
 - **App** (`packet_builder.dart`) : compression avec `package:archive`
   (`ZLibEncoder`) ; n'est utilisée que si elle réduit effectivement la taille
@@ -220,6 +235,14 @@ n'est jamais retransmise séparément, elle se déduit toujours de
 - Le gain est le plus net sur les bitmaps de texte (fond uni + quelques
   glyphes) mais reste généralement positif sur les images/GIFs importés
   (résolution de travail réduite, palettes limitées, voir §4.5).
+- **`SET_ANIMATION` spécifiquement** : compresser toutes les frames en un
+  seul flux (plutôt qu'indépendamment frame par frame comme avant) laisse
+  zlib référencer les frames voisines dans sa fenêtre de compression — très
+  efficace quand des frames consécutives se ressemblent (fond fixe, petite
+  partie qui bouge, cas fréquent pour un GIF/sticker importé), ce qu'une
+  compression par frame ne peut jamais exploiter. Une seule commande BLE
+  pour toute l'animation réduit aussi d'autant le nombre d'allers-retours
+  BLE (un accusé applicatif au lieu d'un par frame, voir §6.2).
 
 > Le firmware reçoit l'image en basse résolution (grille de l'éditeur) et effectue l'**upscale nearest-neighbor** vers les 160x128 réels de l'écran ST7735S (orientation paysage), afin de limiter le volume de données transmis en BLE (une image plein format 160x128 en RGB565 pèse ~40 Ko, ce qui reste lourd pour une transmission fluide en BLE, surtout pour des animations multi-frames).
 

@@ -31,21 +31,33 @@ static const uint8_t HEADER_LEN = 9;  // tout sauf PAYLOAD et CHK
 //   largeur du texte, height=SCREEN_H) ; color_bg sert à peindre le fond
 //   autour à chaque pas de défilement.
 //
-// Payload SET_STATIC_IMAGE / SET_ANIMATION_FRAME :
-//   | width(1) | height(1) | format(1) | frame_index(1) | total_frames(1) |
-//   | frame_delay_ms(2 LE) | data_len(2 LE) | data (voir format ci-dessous) |
-// (frame_index/total_frames/frame_delay_ms ignorés pour une image statique.)
+// Payload SET_STATIC_IMAGE :
+//   | width(1) | height(1) | format(1) | data_len(2 LE) | data (voir format
+//   ci-dessous) |
+//
+// Payload SET_ANIMATION — toute l'animation en une seule commande (plus
+// d'un envoi par frame comme avant) :
+//   | width(1) | height(1) | frame_count(1) | frame_delay_ms(2 LE) |
+//   | format(1) | data (voir format ci-dessous) |
+// `data` décompressé = frame_count frames RGB565 concaténées dans l'ordre
+// (chacune width*height*2 octets, row-major). Tout compresser d'un bloc
+// plutôt que frame par frame laisse zlib référencer les frames voisines —
+// souvent très similaires d'une frame à l'autre pour un GIF (fond fixe,
+// petite partie qui bouge) — ce qu'une compression frame par frame ne peut
+// jamais exploiter. Voir packet_builder.dart / ble_manager.cpp.
 //
 // `format` (voir PIXEL_FORMAT_*, packet_builder.dart) : `data` contient soit
-// les pixels RGB565 big-endian bruts (row-major, width*height*2 octets), soit
-// ces mêmes pixels compressés zlib/deflate (RFC1950) — décompressés côté
-// firmware avec la lib `zlib_turbo` (voir ble_manager.cpp et
-// firmware/README.md) avant d'être transmis à DisplayManager. La taille
-// décompressée attendue (width*height*2) est toujours déduite des champs
-// width/height déjà présents dans le payload, jamais retransmise séparément.
+// les pixels RGB565 big-endian bruts, soit ces mêmes pixels compressés
+// zlib/deflate (RFC1950) — décompressés côté firmware avec la lib
+// `zlib_turbo` (voir ble_manager.cpp et firmware/README.md) avant d'être
+// transmis à DisplayManager. La taille décompressée attendue (width*height*2
+// pour SET_TEXT/SET_STATIC_IMAGE, width*height*2*frame_count pour
+// SET_ANIMATION) est toujours déduite des champs déjà présents dans le
+// payload, jamais retransmise séparément — voir MAX_PAYLOAD_SIZE (config.h)
+// pour la borne haute, dimensionnée pour couvrir une animation complète.
 static const uint8_t CMD_SET_TEXT = 0x01;
 static const uint8_t CMD_SET_STATIC_IMAGE = 0x02;
-static const uint8_t CMD_SET_ANIMATION_FRAME = 0x03;
+static const uint8_t CMD_SET_ANIMATION = 0x03;
 static const uint8_t CMD_CLEAR_SCREEN = 0x04;
 static const uint8_t CMD_PING = 0x05;
 static const uint8_t CMD_GET_STATUS = 0x06;
