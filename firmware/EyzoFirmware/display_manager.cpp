@@ -96,6 +96,7 @@ struct ScreenChannel {
   uint32_t lastTickMs = 0;
   bool blinkOn = true;
   uint32_t lastBlinkMs = 0;
+  uint32_t blinkHalfPeriodMs = 500;
   bool needsRedraw = true;
 
   // --- image statique ---
@@ -149,11 +150,28 @@ SequentialState s_seq;
 
 // --- Helpers ---
 
+// Recalibrées en 2 segments (voir specs.md §6.3) : 1..5 reproduit la plage
+// complète de l'ancien réglage (l'ancienne vitesse 10 devient la nouvelle
+// vitesse 5), puis 5..10 continue d'accélérer au-delà, plus doucement.
+// Miroir exact requis côté app dans glasses_timing.dart (scrollStepIntervalMs
+// / blinkHalfPeriodMs) — voir la note en tête de ce fichier.
 uint32_t stepIntervalFromSpeed(uint8_t speed) {
   uint8_t s = speed < 1 ? 1 : (speed > 10 ? 10 : speed);
-  // vitesse 1 (lent) -> 140ms/px, vitesse 10 (rapide) -> 20ms/px.
-  // Non spécifié précisément par le protocole (specs.md §6.3) : choix firmware.
-  return map(s, 1, 10, 140, 20);
+  // vitesse 1 -> 60ms/px, vitesse 5 -> 10ms/px, vitesse 10 -> 5ms/px.
+  if (s <= 5) return map(s, 1, 5, 60, 10);
+  return map(s, 5, 10, 10, 5);
+}
+
+// Demi-période (allumé OU éteint) du mode clignotant, voir DIR_BLINK dans
+// updateTextChannel(). Plancher volontairement plus prudent que le
+// défilement (voir stepIntervalFromSpeed) pour rester dans un rythme de
+// clignotement franc plutôt qu'un scintillement gênant/potentiellement
+// inconfortable pour un écran porté près des yeux.
+uint32_t blinkHalfPeriodFromSpeed(uint8_t speed) {
+  uint8_t s = speed < 1 ? 1 : (speed > 10 ? 10 : speed);
+  // vitesse 1 -> 600ms, vitesse 5 -> 200ms, vitesse 10 -> 150ms.
+  if (s <= 5) return map(s, 1, 5, 600, 200);
+  return map(s, 5, 10, 200, 150);
 }
 
 void blit(Adafruit_ST7735 &tft, GFXcanvas16 &canvas) {
@@ -221,7 +239,7 @@ void updateTextChannel(ScreenChannel &ch, Adafruit_ST7735 &tft, GFXcanvas16 &can
       ch.blinkOn = true;
       ch.lastBlinkMs = now;
       ch.needsRedraw = false;
-    } else if (now - ch.lastBlinkMs < BLINK_INTERVAL_MS) {
+    } else if (now - ch.lastBlinkMs < ch.blinkHalfPeriodMs) {
       return;
     } else {
       ch.lastBlinkMs = now;
@@ -311,8 +329,12 @@ void redrawSequential() {
   canvasLeft.fillScreen(s_seq.colorBg);
   canvasRight.fillScreen(s_seq.colorBg);
 
-  blitBitmapWindow(canvasLeft, s_seq.textBitmap, s_seq.textBitmapWidth, s_seq.virtualX);
-  blitBitmapWindow(canvasRight, s_seq.textBitmap, s_seq.textBitmapWidth, s_seq.virtualX - SCREEN_W);
+  // canvasRight utilise virtualX tel quel, canvasLeft utilise virtualX -
+  // SCREEN_W : l'écran Gauche affiche donc toujours la portion de bande
+  // SCREEN_W "en avance" sur l'écran Droit, ce qui fait de lui le premier à
+  // entrer et à sortir du texte (voir updateSequential()).
+  blitBitmapWindow(canvasLeft, s_seq.textBitmap, s_seq.textBitmapWidth, s_seq.virtualX - SCREEN_W);
+  blitBitmapWindow(canvasRight, s_seq.textBitmap, s_seq.textBitmapWidth, s_seq.virtualX);
 
   blit(tftLeft, canvasLeft);
   blit(tftRight, canvasRight);
@@ -321,15 +343,15 @@ void redrawSequential() {
 void updateSequential() {
   uint32_t now = millis();
   if (s_seq.needsRedraw) {
-    // Convention specs.md §6.3 (contre-intuitive au regard du seul libellé
-    // "←"/"→" — c'est un choix documenté côté app, voir specs.md §9) :
+    // Convention specs.md §6.3, alignée sur celle du défilement individuel
+    // (updateTextChannel : leftward décroît, rightward croît) :
     //   direction=0 : le texte ENTRE par l'écran Gauche et SORT par le Droit
-    //                 -> la position virtuelle croît de gauche à droite.
+    //                 -> la position virtuelle décroît.
     //   direction=1 : le texte ENTRE par l'écran Droit et SORT par le Gauche
-    //                 -> la position virtuelle décroît de droite à gauche.
+    //                 -> la position virtuelle croît.
     s_seq.virtualX = (s_seq.direction == EyzoProtocol::DIR_LEFTWARD)
-                         ? -(int32_t)s_seq.textBitmapWidth
-                         : (2 * SCREEN_W);
+                         ? (2 * SCREEN_W)
+                         : -(int32_t)s_seq.textBitmapWidth;
     s_seq.lastTickMs = now;
     s_seq.needsRedraw = false;
     redrawSequential();
@@ -338,11 +360,11 @@ void updateSequential() {
   if (now - s_seq.lastTickMs >= s_seq.stepIntervalMs) {
     s_seq.lastTickMs = now;
     if (s_seq.direction == EyzoProtocol::DIR_LEFTWARD) {
-      s_seq.virtualX++;
-      if (s_seq.virtualX > 2 * SCREEN_W) s_seq.virtualX = -(int32_t)s_seq.textBitmapWidth;
-    } else {
       s_seq.virtualX--;
       if (s_seq.virtualX < -(int32_t)s_seq.textBitmapWidth) s_seq.virtualX = 2 * SCREEN_W;
+    } else {
+      s_seq.virtualX++;
+      if (s_seq.virtualX > 2 * SCREEN_W) s_seq.virtualX = -(int32_t)s_seq.textBitmapWidth;
     }
     redrawSequential();
   }
@@ -378,8 +400,8 @@ void drawStatusMessage(const char *msg, uint16_t color) {
 }
 
 void applyTextBitmapToChannel(ScreenChannel &ch, uint8_t direction, uint16_t colorBg,
-                               uint32_t stepMs, uint16_t bitmapWidth, const uint8_t *pixels,
-                               uint32_t pixelLen) {
+                               uint32_t stepMs, uint32_t blinkHalfPeriodMs, uint16_t bitmapWidth,
+                               const uint8_t *pixels, uint32_t pixelLen) {
   ch.anim.reset();
   ch.freeStatic();
   ch.freeTextBitmap();
@@ -395,6 +417,7 @@ void applyTextBitmapToChannel(ScreenChannel &ch, uint8_t direction, uint16_t col
   ch.direction = direction;
   ch.colorBg = colorBg;
   ch.stepIntervalMs = stepMs;
+  ch.blinkHalfPeriodMs = blinkHalfPeriodMs;
   ch.textBitmapWidth = bitmapWidth;
   ch.needsRedraw = true;
   ch.blinkOn = true;
@@ -522,6 +545,7 @@ void clearScreen(uint8_t screenByte) {
 void setText(uint8_t screenByte, uint8_t direction, uint8_t speed, uint16_t colorBg,
              uint16_t bitmapWidth, const uint8_t *pixelsRgb565, uint32_t pixelLen) {
   uint32_t stepMs = stepIntervalFromSpeed(speed);
+  uint32_t blinkMs = blinkHalfPeriodFromSpeed(speed);
 
   if (screenByte == EyzoProtocol::SCREEN_SEQUENTIAL) {
     if (direction == EyzoProtocol::DIR_STATIC || direction == EyzoProtocol::DIR_BLINK) {
@@ -561,12 +585,12 @@ void setText(uint8_t screenByte, uint8_t direction, uint8_t speed, uint16_t colo
   s_seq.active = false;
   s_seq.freeTextBitmap();
   if (screenByte == EyzoProtocol::SCREEN_LEFT || screenByte == EyzoProtocol::SCREEN_SIMULTANEOUS) {
-    applyTextBitmapToChannel(s_left, direction, colorBg, stepMs, bitmapWidth, pixelsRgb565,
-                              pixelLen);
+    applyTextBitmapToChannel(s_left, direction, colorBg, stepMs, blinkMs, bitmapWidth,
+                              pixelsRgb565, pixelLen);
   }
   if (screenByte == EyzoProtocol::SCREEN_RIGHT || screenByte == EyzoProtocol::SCREEN_SIMULTANEOUS) {
-    applyTextBitmapToChannel(s_right, direction, colorBg, stepMs, bitmapWidth, pixelsRgb565,
-                              pixelLen);
+    applyTextBitmapToChannel(s_right, direction, colorBg, stepMs, blinkMs, bitmapWidth,
+                              pixelsRgb565, pixelLen);
   }
 }
 

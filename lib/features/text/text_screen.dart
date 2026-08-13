@@ -139,7 +139,7 @@ class _TextScreenState extends ConsumerState<TextScreen> {
                     )
                   : DualLensRow(
                       rightLens: LensWithLabel(
-                        label: 'Droite',
+                        label: 'R',
                         lens: ScrollingTextPreview(
                           content: _content,
                           width: 130,
@@ -147,7 +147,7 @@ class _TextScreenState extends ConsumerState<TextScreen> {
                         ),
                       ),
                       leftLens: LensWithLabel(
-                        label: 'Gauche',
+                        label: 'L',
                         lens: ScrollingTextPreview(
                           content: _content,
                           width: 130,
@@ -180,9 +180,11 @@ class _TextScreenState extends ConsumerState<TextScreen> {
               decoration: const InputDecoration(hintText: 'Votre texte…'),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Vitesse de défilement',
-              style: TextStyle(color: AppColors.textSecondary),
+            Text(
+              _content.direction == ScrollDirectionMode.blink
+                  ? 'Vitesse de clignotement'
+                  : 'Vitesse de défilement',
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             Slider(
               value: _content.speed.toDouble(),

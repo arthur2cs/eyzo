@@ -1,13 +1,18 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../core/glasses_display.dart';
-import '../core/utils/text_measure.dart';
-import '../core/utils/text_style.dart';
+import '../core/utils/glasses_timing.dart';
+import '../core/utils/pixel_image.dart';
+import '../core/utils/text_bitmap_renderer.dart';
 import '../models/scroll_direction_mode.dart';
 import '../models/text_content.dart';
 import 'dual_lens_row.dart';
 import 'glasses_screen_frame.dart';
 import 'lens_with_label.dart';
+import 'text_bitmap_painter.dart';
 
 /// Aperçu du mode "Séquentiel" (texte uniquement, voir specs.md §4.2/§6.3) :
 /// les 2 écrans forment une seule bande de défilement continue. L'écran de
@@ -16,6 +21,12 @@ import 'lens_with_label.dart';
 /// sort par l'écran Droit ; en "→" c'est l'inverse.
 /// Pour les modes statique/clignotant (sans déplacement), les 2 écrans
 /// affichent simplement le même contenu (équivalent à "Simultané").
+///
+/// Affiche **le bitmap réellement envoyé** (voir text_bitmap_renderer.dart)
+/// animé par un minuteur qui avance pixel par pixel exactement aux mêmes
+/// cadences que le firmware (voir glasses_timing.dart et
+/// display_manager.cpp::updateSequential) : ce que l'utilisateur voit ici
+/// est, au pixel et à l'instant près, ce que les lunettes afficheront.
 class SequentialTextPreview extends StatefulWidget {
   const SequentialTextPreview({
     super.key,
@@ -28,177 +39,189 @@ class SequentialTextPreview extends StatefulWidget {
   final double lensWidth;
 
   /// Espace physique entre les 2 écrans (non collés dans le prototype), en
-  /// mm — voir [DualLensRow]. Converti en délai de traversée du texte
-  /// pendant l'animation (voir [_gapPx]/[_combinedWidth]).
+  /// mm — voir [DualLensRow]. Converti en pixels natifs (voir
+  /// [_nativeGapPx]) : le texte y est invisible le temps de la traverser, à
+  /// la même vitesse (en pixels natifs/seconde) que le défilement réel.
   final double interLensGapMm;
 
   @override
   State<SequentialTextPreview> createState() => _SequentialTextPreviewState();
 }
 
-class _SequentialTextPreviewState extends State<SequentialTextPreview>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+class _SequentialTextPreviewState extends State<SequentialTextPreview> {
+  ui.Image? _image;
+  double _bitmapWidth = 0;
+  double _virtualX = 0;
+  bool _blinkOn = true;
+  Timer? _timer;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    );
-    _controller.addStatusListener(_loopAnimation);
-    _recomputeDuration();
-    _controller.forward();
+    _loadBitmap();
   }
 
   @override
   void didUpdateWidget(covariant SequentialTextPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _recomputeDuration();
-  }
-
-  // Voir ScrollingTextPreview._loopAnimation : repeat() figerait la durée de
-  // la simulation au premier appel, empêchant la vitesse de défilement d'avoir
-  // un effet visible une fois l'animation démarrée.
-  void _loopAnimation(AnimationStatus status) {
-    if (status == AnimationStatus.completed) {
-      _controller.forward(from: 0);
+    final old = oldWidget.content;
+    final content = widget.content;
+    final needsReload =
+        old.text != content.text ||
+        old.font != content.font ||
+        old.size != content.size ||
+        old.colorFg != content.colorFg ||
+        old.colorBg != content.colorBg ||
+        old.direction != content.direction;
+    if (needsReload) {
+      _loadBitmap();
+    } else if (old.speed != content.speed ||
+        oldWidget.interLensGapMm != widget.interLensGapMm) {
+      _restartTimer(); // reprend depuis la position actuelle, cadence seule change
     }
   }
 
   @override
   void dispose() {
-    _controller.removeStatusListener(_loopAnimation);
-    _controller.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
-  TextStyle get _textStyle => textStyleFor(widget.content);
-
-  String get _displayText {
-    final text = widget.content.text.isEmpty
-        ? 'Votre texte…'
-        : widget.content.text;
-    return widget.content.font == GlassesFont.pixel
-        ? text.toUpperCase()
-        : text;
+  /// Substitut d'aperçu quand le texte est vide, avec police/taille/couleurs
+  /// choisies par l'utilisateur (jamais réellement envoyé : text_screen.dart
+  /// bloque l'envoi tant que le texte est vide).
+  TextContent _previewContent(TextContent content) {
+    if (content.text.trim().isNotEmpty) return content;
+    return content.copyWith(text: 'Votre texte…');
   }
 
-  /// Largeur (en px d'aperçu) de l'espace inter-écran, convertie depuis
-  /// [SequentialTextPreview.interLensGapMm] au prorata de la largeur physique
-  /// réelle d'un écran (voir [GlassesDisplay.lensWidthMm]) — le texte y est
-  /// invisible le temps de la traverser, à la même vitesse que le défilement.
-  double get _gapPx =>
-      widget.interLensGapMm / GlassesDisplay.lensWidthMm * widget.lensWidth;
+  Future<void> _loadBitmap() async {
+    final myGeneration = ++_loadGeneration;
+    final bitmap = await renderTextBitmap(_previewContent(widget.content));
+    final image = await pixelFrameToImage(bitmap.frame);
+    if (!mounted || myGeneration != _loadGeneration) return;
+    setState(() {
+      _image = image;
+      _bitmapWidth = bitmap.frame.width.toDouble();
+      _resetPosition();
+    });
+    _restartTimer();
+  }
 
-  double get _combinedWidth => widget.lensWidth * 2 + _gapPx;
+  /// Écart, en pixels **natifs** (voir GlassesDisplay.nativeWidth), entre
+  /// les 2 écrans — c'est dans cette même unité que [_virtualX] avance
+  /// (1 pixel natif par pas, voir _tick), pour que la vitesse perçue reste
+  /// identique à celle du firmware même en tenant compte de cet écart
+  /// purement visuel (le firmware, lui, n'a aucune notion d'écart : les 2
+  /// écrans y sont une bande continue de 2xSCREEN_W, voir protocol.h).
+  double get _nativeGapPx =>
+      widget.interLensGapMm /
+      GlassesDisplay.lensWidthMm *
+      GlassesDisplay.nativeWidth;
 
-  /// Voir [ScrollingTextPreview._recomputeDuration] — même logique, sur la
-  /// largeur combinée des 2 écrans.
-  void _recomputeDuration() {
-    if (widget.content.direction == ScrollDirectionMode.blink) {
-      _controller.duration = blinkPeriod(widget.content.speed);
-      return;
+  double get _combinedNativeWidth =>
+      GlassesDisplay.nativeWidth * 2 + _nativeGapPx;
+
+  /// Miroir de `SequentialState::needsRedraw` côté firmware (première frame
+  /// après un (re)démarrage) : position/état initiaux avant tout défilement.
+  void _resetPosition() {
+    switch (widget.content.direction) {
+      case ScrollDirectionMode.leftward:
+        _virtualX = _combinedNativeWidth;
+      case ScrollDirectionMode.rightward:
+        _virtualX = -_bitmapWidth;
+      case ScrollDirectionMode.blink:
+        _blinkOn = true;
+      case ScrollDirectionMode.static_:
+        break;
     }
-    final speed = widget.content.speed.clamp(1, 10);
-    final pxPerSecond = 30.0 + speed * 25.0;
-    final textWidth = measureTextWidth(_displayText, _textStyle);
-    final travel = _combinedWidth + textWidth;
-    final ms = (travel / pxPerSecond * 1000).clamp(400, 20000).round();
-    _controller.duration = Duration(milliseconds: ms);
   }
 
-  Widget _buildText() =>
-      Text(_displayText, style: _textStyle, maxLines: 1, softWrap: false);
-
-  /// Fenêtre affichant la tranche [sliceStartX, sliceStartX + lensWidth) de la
-  /// bande combinée portée par [_controller].
-  Widget _window(double sliceStartX) {
+  void _restartTimer() {
+    _timer?.cancel();
     final content = widget.content;
-    final combinedWidth = _combinedWidth;
-    final reverse = content.direction == ScrollDirectionMode.rightward;
-    final textWidth = measureTextWidth(_displayText, _textStyle);
+    if (content.direction == ScrollDirectionMode.static_) return;
+    final intervalMs = content.direction == ScrollDirectionMode.blink
+        ? blinkHalfPeriodMs(content.speed)
+        : scrollStepIntervalMs(content.speed);
+    _timer = Timer.periodic(Duration(milliseconds: intervalMs), (_) => _tick());
+  }
 
+  /// Miroir exact de `updateSequential()` côté firmware (display_manager.cpp) :
+  /// même convention de signe que le défilement individuel (`leftward` fait
+  /// décroître la position, `rightward` la fait croître, voir specs.md §6.3)
+  /// — augmenté seulement de [_nativeGapPx] dans les bornes de rebouclage
+  /// (voir [_nativeGapPx]).
+  void _tick() {
+    if (!mounted) return;
+    setState(() {
+      final content = widget.content;
+      if (content.direction == ScrollDirectionMode.blink) {
+        _blinkOn = !_blinkOn;
+        return;
+      }
+      final combined = _combinedNativeWidth;
+      if (content.direction == ScrollDirectionMode.leftward) {
+        _virtualX--;
+        if (_virtualX < -_bitmapWidth) _virtualX = combined;
+      } else if (content.direction == ScrollDirectionMode.rightward) {
+        _virtualX++;
+        if (_virtualX > combined) _virtualX = -_bitmapWidth;
+      }
+    });
+  }
+
+  Widget _lensWindow(double offsetXPx, bool showImage) {
     return GlassesScreenFrame(
       width: widget.lensWidth,
-      backgroundColor: content.colorBg,
-      child: ClipRect(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final t = reverse ? 1 - _controller.value : _controller.value;
-            final pos = combinedWidth - t * (combinedWidth + textWidth);
-            return Transform.translate(
-              offset: Offset(pos - sliceStartX, 0),
-              // Voir ScrollingTextPreview : sans OverflowBox, le texte serait
-              // tronqué à la largeur de la fenêtre avant même d'être translaté,
-              // ce qui l'empêcherait de "continuer" visuellement sur l'autre écran.
-              // minHeight: 0 est nécessaire pour que l'alignement centre vraiment
-              // le texte verticalement (sinon la contrainte de hauteur reste
-              // "tight" et le texte est étiré en haut du cadre).
-              child: OverflowBox(
-                minWidth: 0,
-                maxWidth: double.infinity,
-                minHeight: 0,
-                alignment: Alignment.centerLeft,
-                child: child,
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: _buildText(),
+      backgroundColor: widget.content.colorBg,
+      child: NativeAspectBox(
+        child: CustomPaint(
+          painter: TextBitmapPainter(
+            image: showImage ? _image : null,
+            offsetXPx: offsetXPx,
+            backgroundColor: widget.content.colorBg,
+            nativeViewportWidth: GlassesDisplay.nativeWidth.toDouble(),
           ),
         ),
       ),
     );
   }
 
-  Widget _staticOrBlinkWindow() {
-    final content = widget.content;
-    final textWidget = Padding(
-      padding: const EdgeInsets.all(8),
-      child: _buildText(),
-    );
-    return GlassesScreenFrame(
-      width: widget.lensWidth,
-      backgroundColor: content.colorBg,
-      child: Center(
-        child: content.direction == ScrollDirectionMode.blink
-            ? FadeTransition(
-                opacity: _controller.drive(
-                  TweenSequence([
-                    TweenSequenceItem(tween: ConstantTween(1.0), weight: 50),
-                    TweenSequenceItem(tween: ConstantTween(0.0), weight: 50),
-                  ]),
-                ),
-                child: textWidget,
-              )
-            : textWidget,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final content = widget.content;
     final travels =
-        widget.content.direction == ScrollDirectionMode.leftward ||
-        widget.content.direction == ScrollDirectionMode.rightward;
+        content.direction == ScrollDirectionMode.leftward ||
+        content.direction == ScrollDirectionMode.rightward;
+    final showImage =
+        content.direction != ScrollDirectionMode.blink || _blinkOn;
 
-    // Bande combinée alignée sur l'affichage app (miroir) : [Droit : 0..lensWidth)
-    // à gauche de l'app, puis [Gauche : lensWidth..2*lensWidth) à droite de l'app —
-    // la jointure entre les 2 tranches tombe ainsi exactement sur le connecteur
-    // visuel entre les 2 verres (voir DualLensRow), sans quoi le texte "sauterait"
-    // d'un bord extérieur à l'autre au lieu de continuer d'un écran à l'autre.
-    final droitLens = travels ? _window(0) : _staticOrBlinkWindow();
+    // Miroir exact de redrawSequential() côté firmware (display_manager.cpp),
+    // en tenant compte de la vue "miroir" de l'app (voir DualLensRow : le
+    // verre Gauche du porteur est affiché à DROITE de l'app, le Droit à
+    // GAUCHE, specs.md §3) : c'est donc l'écran affiché à gauche de l'app
+    // (droitLens) qui utilise l'offset virtualX tel quel (comme canvasRight
+    // côté firmware), et celui affiché à droite (gaucheLens) qui utilise
+    // virtualX - SCREEN_W (comme canvasLeft, ici élargi de l'écart
+    // inter-écrans, voir _nativeGapPx) — la jointure entre les 2 tranches
+    // tombe ainsi exactement sur le connecteur visuel entre les 2 verres,
+    // sans quoi le texte "sauterait" d'un bord extérieur à l'autre au lieu
+    // de continuer d'un écran à l'autre.
+    final droitLens = travels
+        ? _lensWindow(_virtualX, showImage)
+        : _lensWindow(0, showImage);
     final gaucheLens = travels
-        ? _window(widget.lensWidth + _gapPx)
-        : _staticOrBlinkWindow();
+        ? _lensWindow(
+            _virtualX - (GlassesDisplay.nativeWidth + _nativeGapPx),
+            showImage,
+          )
+        : _lensWindow(0, showImage);
 
     return DualLensRow(
-      rightLens: LensWithLabel(label: 'Droite', lens: droitLens),
-      leftLens: LensWithLabel(label: 'Gauche', lens: gaucheLens),
+      rightLens: LensWithLabel(label: 'R', lens: droitLens),
+      leftLens: LensWithLabel(label: 'L', lens: gaucheLens),
     );
   }
 }

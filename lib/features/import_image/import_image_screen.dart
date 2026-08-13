@@ -186,7 +186,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
     final animation = _animation;
     return DualLensRow(
       rightLens: LensWithLabel(
-        label: 'Droite',
+        label: 'R',
         lens: animation != null
             ? PixelAnimationPreview(
                 animation: animation,
@@ -196,7 +196,7 @@ class _ImportImageScreenState extends ConsumerState<ImportImageScreen> {
             : _emptyLens(),
       ),
       leftLens: LensWithLabel(
-        label: 'Gauche',
+        label: 'L',
         lens: animation != null
             ? PixelAnimationPreview(
                 animation: animation,

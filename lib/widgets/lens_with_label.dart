@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 
-/// Verre + légende ("Droite"/"Gauche", du point de vue du porteur).
+/// Verre + légende ("L"/"R", du point de vue du porteur — voir CLAUDE.md
+/// pour la convention L/R (porteur) vs gauche/droite (aperçu, miroir)).
 class LensWithLabel extends StatelessWidget {
   const LensWithLabel({super.key, required this.lens, required this.label});
 

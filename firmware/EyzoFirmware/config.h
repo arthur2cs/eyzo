@@ -54,7 +54,3 @@
 // décompression (sortie), tous deux alloués en PSRAM, voir begin() dans
 // ble_manager.cpp.
 #define ZLIB_TURBO_BUFFER_PADDING 16UL
-
-// Intervalle de clignotement pour le mode texte "clignotant" (direction=3).
-// Non spécifié par le protocole (specs.md §6.3) : choix firmware.
-#define BLINK_INTERVAL_MS 500

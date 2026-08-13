@@ -54,7 +54,7 @@ Ce document sert de contrat de référence pour le développement de l'app **et*
   - Gauche, Droit, Simultané : contenu identique ou indépendant sur chaque écran (comme pour les autres modes de contenu, voir §6.2)
   - **Séquentiel (texte uniquement)** : les 2 écrans forment une seule bande de défilement continue — le texte part d'un écran et continue sur l'autre. L'écran de départ dépend de la direction : en défilement "←" le texte entre par l'écran Gauche et sort par l'écran Droit ; en "→" c'est l'inverse (voir §6.3 pour le détail protocole). Sans effet particulier en mode statique/clignotant (équivalent à Simultané dans ce cas).
 - Réglages disponibles :
-  - **Vitesse de défilement** (slider)
+  - **Vitesse** (slider, niveau 1–10) : pas de défilement en mode défilement, cadence de clignotement en mode clignotant (deux mappings distincts, voir §6.3 — sans effet en mode statique)
   - **Couleur du texte et couleur de fond** (color picker, rendu RGB565 sur les écrans)
   - **Police et taille de caractère** (liste de polices bitmap embarquées côté firmware, sélection par id)
   - **Direction / mode** : défilement gauche→droite, droite→gauche, statique, clignotant
@@ -167,7 +167,12 @@ ESP32 différente, mapping de taille grossier).
 
 - `direction` statique/clignotant : bitmap **plein écran** (`width` = 160,
   `height` = 128), fond déjà peint dedans — le firmware l'affiche/le masque
-  tel quel (clignotement) sans autre calcul.
+  tel quel (clignotement) sans autre calcul. `speed` pilote la cadence de
+  clignotement (`blinkHalfPeriodFromSpeed()` dans display_manager.cpp) — un
+  mapping différent de celui du défilement (`stepIntervalFromSpeed()`),
+  reproduit à l'identique côté app dans `glasses_timing.dart` pour que
+  l'aperçu et l'affichage réel restent synchronisés. Sans effet en mode
+  statique.
 - `direction` défilement : bitmap resserré sur le texte seul (`width` =
   largeur réelle du texte rendu, `height` = 128) — le firmware repeint le
   fond avec `color_bg` à chaque pas et y positionne une fenêtre glissante du

@@ -11,17 +11,16 @@ ce dossier qu'il faut ouvrir dans Arduino IDE (double-clic sur
 > Ce firmware a été **compilé avec succès** (`arduino-cli compile`, core
 > `esp32:esp32` v3.3.11, carte `XIAO_ESP32S3`, PSRAM=OPI) — 17 % flash / 12 %
 > RAM utilisés (dernière vérification). Le socle (écrans, bouton, connexion
-> BLE, envoi de texte et d'images compressés en zlib) **a été validé sur le
-> matériel réel** — **important : nécessite l'option `PSRAM=OPI` activée
-> dans Arduino IDE** (`Outils > PSRAM > OPI PSRAM`), sans quoi le buffer de
-> réassemblage BLE ne s'alloue pas et toute commande échoue silencieusement
-> (voir §5 sur l'ACK/NACK applicatif, désormais consommé côté app). Le
-> nouveau `SET_ANIMATION` (toutes les frames compressées ensemble en une
-> seule commande, voir §4) est en revanche **encore seulement validé à la
-> compilation**, pas encore testé sur le matériel réel — à valider en
-> priorité : la taille réelle des animations compressées, et que le
-> comportement "l'ancienne animation continue de tourner pendant la
-> réception de la nouvelle" se vérifie bien à l'usage.
+> BLE, envoi de texte/images/animations compressés en zlib via
+> `SET_ANIMATION`) **a été validé sur le matériel réel** — **important :
+> nécessite l'option `PSRAM=OPI` activée dans Arduino IDE**
+> (`Outils > PSRAM > OPI PSRAM`), sans quoi le buffer de réassemblage BLE ne
+> s'alloue pas et toute commande échoue silencieusement (voir §5 sur
+> l'ACK/NACK applicatif, désormais consommé côté app). Les nouvelles
+> cadences de défilement/clignotement (`stepIntervalFromSpeed()` /
+> `blinkHalfPeriodFromSpeed()`, voir §4) sont en revanche **encore
+> seulement validées à la compilation**, pas encore testées sur le matériel
+> réel.
 
 ## 1. Installation Arduino IDE
 
@@ -208,9 +207,13 @@ pratique qui compte pour l'usage "enceinte", mais à garder en tête.
   bitmap RGB565 fidèle à l'aperçu (voir `text_bitmap_renderer.dart` et
   specs.md §6.3) — le firmware ne fait plus de rendu de police, il
   affiche/défile ce bitmap tel quel (`blitBitmapWindow()` dans
-  `display_manager.cpp`). Seul `speed -> délai de défilement` reste un
-  mapping firmware (`stepIntervalFromSpeed()`), non spécifié précisément par
-  le protocole (specs.md), ajustable sans impact côté app.
+  `display_manager.cpp`). `speed -> délai de défilement/clignotement` reste
+  un mapping firmware (`stepIntervalFromSpeed()`/`blinkHalfPeriodFromSpeed()`
+  dans `display_manager.cpp`), non spécifié précisément par le protocole
+  (specs.md) — **mais désormais reproduit à l'identique côté app**
+  (`lib/core/utils/glasses_timing.dart`) pour que l'aperçu affiche le même
+  rythme que les lunettes : toute modification de ces deux fonctions doit
+  être répercutée dans `glasses_timing.dart`, et inversement.
 
 ## 5. Points ouverts / limitations connues
 

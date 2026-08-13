@@ -189,7 +189,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             Center(
               child: DualLensRow(
                 rightLens: LensWithLabel(
-                  label: 'Droite',
+                  label: 'R',
                   lens: PixelAnimationPreview(
                     animation: _animation,
                     width: 130,
@@ -198,7 +198,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   ),
                 ),
                 leftLens: LensWithLabel(
-                  label: 'Gauche',
+                  label: 'L',
                   lens: PixelAnimationPreview(
                     animation: _animation,
                     width: 130,
