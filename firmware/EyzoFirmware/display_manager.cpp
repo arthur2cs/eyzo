@@ -148,6 +148,58 @@ struct SequentialState {
 
 SequentialState s_seq;
 
+// --- DEBUG TEMPORAIRE : mesure de la cadence réelle de défilement, à
+// retirer une fois le diagnostic terminé (écart de vitesse aperçu app vs
+// matériel réel). Accumule sur ~1s puis imprime un résumé (Serial 115200) :
+// "intervalle reel" = temps effectivement écoulé entre 2 pas de défilement
+// (à comparer à stepIntervalMs demandé) ; "redraw+blit" = part de cet
+// intervalle passée dans fillScreen/blitBitmapWindow/blit (donc SPI inclus)
+// — ce qui n'est PAS dans "redraw+blit" mais fait grimper "intervalle reel"
+// vient d'ailleurs dans loop() (BLE, autre canal, etc).
+#define LOG_SCROLL_TIMING 1
+#if LOG_SCROLL_TIMING
+struct ScrollTimingStats {
+  uint32_t intervalMinMs = UINT32_MAX, intervalMaxMs = 0, intervalSumMs = 0;
+  uint32_t redrawMinUs = UINT32_MAX, redrawMaxUs = 0, redrawSumUs = 0;
+  uint16_t count = 0;
+  uint32_t lastReportMs = 0;
+
+  void record(uint32_t intervalMs, uint32_t redrawUs) {
+    if (intervalMs < intervalMinMs) intervalMinMs = intervalMs;
+    if (intervalMs > intervalMaxMs) intervalMaxMs = intervalMs;
+    intervalSumMs += intervalMs;
+    if (redrawUs < redrawMinUs) redrawMinUs = redrawUs;
+    if (redrawUs > redrawMaxUs) redrawMaxUs = redrawUs;
+    redrawSumUs += redrawUs;
+    count++;
+  }
+
+  void reportIfDue(const char *label, uint32_t stepIntervalMs) {
+    uint32_t now = millis();
+    if (count == 0 || now - lastReportMs < 1000) return;
+    Serial.printf(
+        "[timing] %-10s demande=%lums/px  intervalle reel: min=%lu avg=%lu max=%lu ms  "
+        "redraw+blit: min=%lu avg=%lu max=%lu us  (n=%u)\n",
+        label, (unsigned long)stepIntervalMs, (unsigned long)intervalMinMs,
+        (unsigned long)(intervalSumMs / count), (unsigned long)intervalMaxMs,
+        (unsigned long)redrawMinUs, (unsigned long)(redrawSumUs / count),
+        (unsigned long)redrawMaxUs, count);
+    intervalMinMs = UINT32_MAX;
+    intervalMaxMs = 0;
+    intervalSumMs = 0;
+    redrawMinUs = UINT32_MAX;
+    redrawMaxUs = 0;
+    redrawSumUs = 0;
+    count = 0;
+    lastReportMs = now;
+  }
+};
+
+ScrollTimingStats s_individualTiming;
+ScrollTimingStats s_sequentialTiming;
+#endif
+// --- FIN DEBUG TEMPORAIRE ---
+
 // --- Helpers ---
 
 // Recalibrées en 2 segments (voir specs.md §6.3) : 1..5 reproduit la plage
@@ -266,17 +318,34 @@ void updateTextChannel(ScreenChannel &ch, Adafruit_ST7735 &tft, GFXcanvas16 &can
     return;
   }
   if (now - ch.lastTickMs >= ch.stepIntervalMs) {
-    ch.lastTickMs = now;
+    // Le redraw (fillScreen + blit SPI) peut prendre plus longtemps que
+    // stepIntervalMs à vitesse élevée (goulot SPI, voir diagnostic
+    // [timing]) : on avance donc de plusieurs pixels d'un coup pour
+    // rattraper le temps réellement écoulé, plutôt que de plafonner la
+    // vitesse perçue au débit SPI. lastTickMs avance de steps*stepIntervalMs
+    // (pas = now) pour ne pas accumuler de retard de phase d'un tick à
+    // l'autre.
+    uint32_t elapsedMs = now - ch.lastTickMs;
+    int32_t steps = elapsedMs / ch.stepIntervalMs;
+    if (steps < 1) steps = 1;
+    ch.lastTickMs += steps * ch.stepIntervalMs;
     if (ch.direction == EyzoProtocol::DIR_LEFTWARD) {
-      ch.scrollX--;
+      ch.scrollX -= steps;
       if (ch.scrollX < -(int32_t)ch.textBitmapWidth) ch.scrollX = SCREEN_W;
     } else {
-      ch.scrollX++;
+      ch.scrollX += steps;
       if (ch.scrollX > SCREEN_W) ch.scrollX = -(int32_t)ch.textBitmapWidth;
     }
+#if LOG_SCROLL_TIMING
+    uint32_t redrawStartUs = micros();
+#endif
     canvas.fillScreen(ch.colorBg);
     blitBitmapWindow(canvas, ch.textBitmap, ch.textBitmapWidth, ch.scrollX);
     blit(tft, canvas);
+#if LOG_SCROLL_TIMING
+    s_individualTiming.record(elapsedMs, micros() - redrawStartUs);
+    s_individualTiming.reportIfDue("individuel", ch.stepIntervalMs);
+#endif
   }
 }
 
@@ -358,15 +427,29 @@ void updateSequential() {
     return;
   }
   if (now - s_seq.lastTickMs >= s_seq.stepIntervalMs) {
-    s_seq.lastTickMs = now;
+    // Voir le commentaire équivalent dans updateTextChannel() : le redraw
+    // (2 blits SPI ici) peut prendre plus longtemps que stepIntervalMs à
+    // vitesse élevée, donc on rattrape en avançant de plusieurs pixels
+    // d'un coup plutôt que de plafonner la vitesse perçue au débit SPI.
+    uint32_t elapsedMs = now - s_seq.lastTickMs;
+    int32_t steps = elapsedMs / s_seq.stepIntervalMs;
+    if (steps < 1) steps = 1;
+    s_seq.lastTickMs += steps * s_seq.stepIntervalMs;
     if (s_seq.direction == EyzoProtocol::DIR_LEFTWARD) {
-      s_seq.virtualX--;
+      s_seq.virtualX -= steps;
       if (s_seq.virtualX < -(int32_t)s_seq.textBitmapWidth) s_seq.virtualX = 2 * SCREEN_W;
     } else {
-      s_seq.virtualX++;
+      s_seq.virtualX += steps;
       if (s_seq.virtualX > 2 * SCREEN_W) s_seq.virtualX = -(int32_t)s_seq.textBitmapWidth;
     }
+#if LOG_SCROLL_TIMING
+    uint32_t redrawStartUs = micros();
+#endif
     redrawSequential();
+#if LOG_SCROLL_TIMING
+    s_sequentialTiming.record(elapsedMs, micros() - redrawStartUs);
+    s_sequentialTiming.reportIfDue("sequentiel", s_seq.stepIntervalMs);
+#endif
   }
 }
 
@@ -516,6 +599,18 @@ void showPairing(uint32_t secondsLeft) {
   drawStatusMessage(buf, ST77XX_YELLOW);
 }
 
+// Éteint un canal (mode/animation/image/texte réinitialisés, canvas noir
+// blitté) — utilisé par clearScreen() et par setAnimation() pour l'écran non
+// ciblé par une nouvelle animation (voir setAnimation()).
+void blankChannel(ScreenChannel &ch, Adafruit_ST7735 &tft, GFXcanvas16 &canvas) {
+  ch.mode = Mode::None;
+  ch.anim.reset();
+  ch.freeStatic();
+  ch.freeTextBitmap();
+  canvas.fillScreen(ST77XX_BLACK);
+  blit(tft, canvas);
+}
+
 void clearScreen(uint8_t screenByte) {
   if (screenByte == EyzoProtocol::SCREEN_SEQUENTIAL) {
     s_seq.active = false;
@@ -524,21 +619,11 @@ void clearScreen(uint8_t screenByte) {
 
   if (screenByte == EyzoProtocol::SCREEN_LEFT || screenByte == EyzoProtocol::SCREEN_SIMULTANEOUS ||
       screenByte == EyzoProtocol::SCREEN_SEQUENTIAL) {
-    s_left.mode = Mode::None;
-    s_left.anim.reset();
-    s_left.freeStatic();
-    s_left.freeTextBitmap();
-    canvasLeft.fillScreen(ST77XX_BLACK);
-    blit(tftLeft, canvasLeft);
+    blankChannel(s_left, tftLeft, canvasLeft);
   }
   if (screenByte == EyzoProtocol::SCREEN_RIGHT || screenByte == EyzoProtocol::SCREEN_SIMULTANEOUS ||
       screenByte == EyzoProtocol::SCREEN_SEQUENTIAL) {
-    s_right.mode = Mode::None;
-    s_right.anim.reset();
-    s_right.freeStatic();
-    s_right.freeTextBitmap();
-    canvasRight.fillScreen(ST77XX_BLACK);
-    blit(tftRight, canvasRight);
+    blankChannel(s_right, tftRight, canvasRight);
   }
 }
 
@@ -615,6 +700,13 @@ void setAnimation(uint8_t screenByte, uint8_t width, uint8_t height, uint8_t fra
   // Non exposé côté app pour cette commande (specs.md §6.3) : traité comme
   // Simultané par sécurité plutôt que de laisser un comportement non défini.
   if (screenByte == EyzoProtocol::SCREEN_SEQUENTIAL) screenByte = EyzoProtocol::SCREEN_SIMULTANEOUS;
+
+  // L'écran non ciblé par cette animation est explicitement éteint : sans
+  // ça, une animation reçue précédemment sur cet écran (ex: envoyée en
+  // Simultané, puis remplacée par une nouvelle animation ciblant un seul
+  // écran) continuerait de tourner dessus indéfiniment.
+  if (screenByte == EyzoProtocol::SCREEN_LEFT) blankChannel(s_right, tftRight, canvasRight);
+  if (screenByte == EyzoProtocol::SCREEN_RIGHT) blankChannel(s_left, tftLeft, canvasLeft);
 
   if (screenByte == EyzoProtocol::SCREEN_LEFT || screenByte == EyzoProtocol::SCREEN_SIMULTANEOUS)
     applyAnimationToChannel(s_left, width, height, frameCount, frameDelayMs, pixelsRgb565,
