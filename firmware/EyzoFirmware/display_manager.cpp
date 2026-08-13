@@ -569,10 +569,13 @@ void begin() {
 
   tftLeft.initR(INITR_BLACKTAB);
   tftRight.initR(INITR_BLACKTAB);
-  // Orientation paysage (voir specs.md §2). Si l'image apparaît tournée/
-  // inversée une fois monté dans les lunettes, essayer setRotation(3).
+  // Orientation paysage (voir specs.md §2). Les nappes des 2 écrans sortent
+  // vers l'intérieur de la monture : l'écran Droit est donc monté tête-bêche
+  // par rapport au Gauche (rotation physique de 180°) — rotation 3 (= 1 +
+  // 180°) compense exactement ça au niveau du contrôleur (MADCTL, via
+  // setAddrWindow()/drawRGBBitmap()), sans toucher au contenu des bitmaps.
   tftLeft.setRotation(1);
-  tftRight.setRotation(1);
+  tftRight.setRotation(3);
 
   canvasLeft.fillScreen(ST77XX_BLACK);
   canvasRight.fillScreen(ST77XX_BLACK);
