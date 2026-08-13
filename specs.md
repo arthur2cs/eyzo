@@ -162,6 +162,7 @@ ESP32 différente, mapping de taille grossier).
 | 2 | `color_bg` (RGB565 LE) |
 | 2 | `width` (uint16 LE) |
 | 1 | `height` (toujours égal à la hauteur native de l'écran, 128) |
+| 2 | `gap_native_px` (uint16 LE) — écart inter-écran en pixels natifs, uniquement significatif pour `SCREEN = 0x03` (séquentiel), ignoré sinon |
 | 1 | `format` (0=brut, 1=compressé zlib — voir "Compression" ci-dessous) |
 | N | pixels RGB565 big-endian, row-major (`width * height * 2` octets si `format=0` ; sinon flux zlib de ces mêmes octets) |
 
@@ -186,10 +187,11 @@ ESP32 différente, mapping de taille grossier).
   rejette l'envoi avant transmission si ce plafond est dépassé plutôt que de
   laisser un transfert BLE de plusieurs minutes.
 
-**Mode séquentiel (`SCREEN = 0x03`, `SET_TEXT` uniquement)** : les 2 écrans sont traités par le firmware comme une seule bande de défilement continue (largeur virtuelle = 2x la largeur d'un écran), au lieu de dupliquer le même texte sur chaque écran indépendamment. L'écran de départ dépend du champ `direction` de ce même payload :
+**Mode séquentiel (`SCREEN = 0x03`, `SET_TEXT` uniquement)** : les 2 écrans sont traités par le firmware comme une seule bande de défilement continue (largeur virtuelle = 2x la largeur d'un écran + `gap_native_px`), au lieu de dupliquer le même texte sur chaque écran indépendamment. L'écran de départ dépend du champ `direction` de ce même payload :
 - `direction = 0` (défilement ←) : le texte entre par l'écran **Gauche** et sort par l'écran **Droit**.
 - `direction = 1` (défilement →) : le texte entre par l'écran **Droit** et sort par l'écran **Gauche**.
 - `direction = 2` (statique) ou `3` (clignotant) : pas de déplacement possible entre écrans — le firmware doit traiter `SCREEN = 0x03` comme équivalent à `0x02` (simultané) dans ce cas.
+- `gap_native_px` élargit la bande virtuelle de cet écart : le texte est invisible le temps de le traverser (à la même vitesse en pixels natifs/seconde que le défilement), exactement comme dans l'aperçu (`SequentialTextPreview`/`_nativeGapPx`) — les 2 restent ainsi synchronisés, l'écart réglé par l'utilisateur (`interLensGapProvider`) n'étant plus une simulation purement visuelle côté app.
 
 `SCREEN = 0x03` n'est pas utilisé par `SET_STATIC_IMAGE` / `SET_ANIMATION` (non exposé côté app pour ces commandes) ; comportement non défini si reçu par le firmware pour ces commandes.
 

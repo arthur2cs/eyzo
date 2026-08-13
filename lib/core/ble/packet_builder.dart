@@ -16,10 +16,16 @@ class EyzoPacketBuilder {
   /// Rend [content] en bitmap RGB565 (voir text_bitmap_renderer.dart, fidèle
   /// à l'aperçu) et construit la trame `SET_TEXT` correspondante. Le firmware
   /// ne fait plus de rendu de police : il affiche/défile ce bitmap tel quel.
+  ///
+  /// [gapNativePx] : écart inter-écran en pixels natifs (voir
+  /// `GlassesDisplay.gapMmToNativePx`) — uniquement significatif pour
+  /// `TargetScreen.sequential` (ignoré par le firmware sinon), voir
+  /// protocol.h.
   static Future<List<Uint8List>> setText(
     TargetScreen screen,
-    TextContent content,
-  ) async {
+    TextContent content, {
+    int gapNativePx = 0,
+  }) async {
     final bitmap = await renderTextBitmap(content);
     final pixels = bitmap.frame.pixelsRgb565;
 
@@ -27,7 +33,7 @@ class EyzoPacketBuilder {
     // borne le buffer de décompression PSRAM côté firmware (MAX_PAYLOAD_SIZE,
     // voir ble_manager.cpp), la taille effectivement transmise sur le lien
     // BLE étant elle réduite par la compression ci-dessous.
-    final rawLen = 7 + pixels.length;
+    final rawLen = 9 + pixels.length;
     if (rawLen > EyzoProtocol.maxPayloadSize) {
       throw ArgumentError(
         'Texte trop volumineux pour être envoyé ($rawLen octets) : '
@@ -43,6 +49,7 @@ class EyzoPacketBuilder {
     payload.add(_uint16le(bitmap.colorBgRgb565));
     payload.add(_uint16le(bitmap.frame.width));
     payload.addByte(bitmap.frame.height);
+    payload.add(_uint16le(gapNativePx));
     payload.addByte(format);
     payload.add(data);
 

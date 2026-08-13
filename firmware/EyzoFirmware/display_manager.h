@@ -26,8 +26,12 @@ void clearScreen(uint8_t screenByte);
 
 // bitmapWidth/pixelsRgb565/pixelLen : bitmap RGB565 déjà rendu côté app (voir
 // protocol.h) — hauteur toujours SCREEN_H, validée en amont par ble_manager.
+// gapNativePx : écart inter-écran en pixels natifs, significatif seulement
+// pour screenByte=SCREEN_SEQUENTIAL (voir protocol.h et
+// sequential_text_preview.dart côté app).
 void setText(uint8_t screenByte, uint8_t direction, uint8_t speed, uint16_t colorBg,
-             uint16_t bitmapWidth, const uint8_t *pixelsRgb565, uint32_t pixelLen);
+             uint16_t bitmapWidth, uint16_t gapNativePx, const uint8_t *pixelsRgb565,
+             uint32_t pixelLen);
 
 void setStaticImage(uint8_t screenByte, uint8_t width, uint8_t height,
                      const uint8_t *pixelsRgb565, uint16_t pixelLen);

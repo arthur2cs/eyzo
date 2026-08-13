@@ -138,6 +138,12 @@ struct SequentialState {
   uint32_t lastTickMs = 0;
   bool needsRedraw = true;
 
+  // Écart physique entre les 2 écrans, en pixels natifs (voir protocol.h) :
+  // élargit la bande virtuelle (2*SCREEN_W + gapNativePx au lieu de
+  // 2*SCREEN_W) — le texte y est invisible le temps de la traverser, comme
+  // dans l'aperçu (sequential_text_preview.dart::_nativeGapPx).
+  int32_t gapNativePx = 0;
+
   void freeTextBitmap() {
     if (textBitmap) {
       heap_caps_free(textBitmap);
@@ -399,10 +405,14 @@ void redrawSequential() {
   canvasRight.fillScreen(s_seq.colorBg);
 
   // canvasRight utilise virtualX tel quel, canvasLeft utilise virtualX -
-  // SCREEN_W : l'écran Gauche affiche donc toujours la portion de bande
-  // SCREEN_W "en avance" sur l'écran Droit, ce qui fait de lui le premier à
-  // entrer et à sortir du texte (voir updateSequential()).
-  blitBitmapWindow(canvasLeft, s_seq.textBitmap, s_seq.textBitmapWidth, s_seq.virtualX - SCREEN_W);
+  // (SCREEN_W + gapNativePx) : l'écran Gauche affiche donc toujours la
+  // portion de bande "en avance" sur l'écran Droit (de la largeur d'un
+  // écran + l'écart physique entre les 2), ce qui fait de lui le premier à
+  // entrer et à sortir du texte (voir updateSequential()). L'écart fait que
+  // le texte est invisible le temps de le traverser entre les 2 écrans,
+  // comme dans l'aperçu (sequential_text_preview.dart).
+  blitBitmapWindow(canvasLeft, s_seq.textBitmap, s_seq.textBitmapWidth,
+                    s_seq.virtualX - SCREEN_W - s_seq.gapNativePx);
   blitBitmapWindow(canvasRight, s_seq.textBitmap, s_seq.textBitmapWidth, s_seq.virtualX);
 
   blit(tftLeft, canvasLeft);
@@ -419,7 +429,7 @@ void updateSequential() {
     //   direction=1 : le texte ENTRE par l'écran Droit et SORT par le Gauche
     //                 -> la position virtuelle croît.
     s_seq.virtualX = (s_seq.direction == EyzoProtocol::DIR_LEFTWARD)
-                         ? (2 * SCREEN_W)
+                         ? (2 * SCREEN_W + s_seq.gapNativePx)
                          : -(int32_t)s_seq.textBitmapWidth;
     s_seq.lastTickMs = now;
     s_seq.needsRedraw = false;
@@ -437,10 +447,12 @@ void updateSequential() {
     s_seq.lastTickMs += steps * s_seq.stepIntervalMs;
     if (s_seq.direction == EyzoProtocol::DIR_LEFTWARD) {
       s_seq.virtualX -= steps;
-      if (s_seq.virtualX < -(int32_t)s_seq.textBitmapWidth) s_seq.virtualX = 2 * SCREEN_W;
+      if (s_seq.virtualX < -(int32_t)s_seq.textBitmapWidth)
+        s_seq.virtualX = 2 * SCREEN_W + s_seq.gapNativePx;
     } else {
       s_seq.virtualX += steps;
-      if (s_seq.virtualX > 2 * SCREEN_W) s_seq.virtualX = -(int32_t)s_seq.textBitmapWidth;
+      if (s_seq.virtualX > 2 * SCREEN_W + s_seq.gapNativePx)
+        s_seq.virtualX = -(int32_t)s_seq.textBitmapWidth;
     }
 #if LOG_SCROLL_TIMING
     uint32_t redrawStartUs = micros();
@@ -631,16 +643,18 @@ void clearScreen(uint8_t screenByte) {
 }
 
 void setText(uint8_t screenByte, uint8_t direction, uint8_t speed, uint16_t colorBg,
-             uint16_t bitmapWidth, const uint8_t *pixelsRgb565, uint32_t pixelLen) {
+             uint16_t bitmapWidth, uint16_t gapNativePx, const uint8_t *pixelsRgb565,
+             uint32_t pixelLen) {
   uint32_t stepMs = stepIntervalFromSpeed(speed);
   uint32_t blinkMs = blinkHalfPeriodFromSpeed(speed);
 
   if (screenByte == EyzoProtocol::SCREEN_SEQUENTIAL) {
     if (direction == EyzoProtocol::DIR_STATIC || direction == EyzoProtocol::DIR_BLINK) {
       // specs.md §6.3 : sans effet particulier en statique/clignotant,
-      // équivalent à Simultané dans ce cas.
+      // équivalent à Simultané dans ce cas (gapNativePx n'a pas de sens hors
+      // Séquentiel, ignoré par la branche ci-dessous).
       setText(EyzoProtocol::SCREEN_SIMULTANEOUS, direction, speed, colorBg, bitmapWidth,
-              pixelsRgb565, pixelLen);
+              gapNativePx, pixelsRgb565, pixelLen);
       return;
     }
     s_left.mode = Mode::None;
@@ -666,6 +680,7 @@ void setText(uint8_t screenByte, uint8_t direction, uint8_t speed, uint16_t colo
     s_seq.colorBg = colorBg;
     s_seq.direction = direction;
     s_seq.stepIntervalMs = stepMs;
+    s_seq.gapNativePx = gapNativePx;
     s_seq.needsRedraw = true;
     return;
   }

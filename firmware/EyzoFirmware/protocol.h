@@ -24,12 +24,17 @@ static const uint8_t HEADER_LEN = 9;  // tout sauf PAYLOAD et CHK
 // fidèles à l'aperçu, voir text_bitmap_renderer.dart), le firmware se
 // contente de l'afficher/défiler tel quel :
 //   | direction(1) | speed(1) | color_bg(2 LE) | width(2 LE) | height(1) |
-//   | format(1) | data (voir format ci-dessous) |
+//   | gap_native_px(2 LE) | format(1) | data (voir format ci-dessous) |
 // - direction=statique/clignotant : bitmap plein écran (width=SCREEN_W,
 //   height=SCREEN_H), fond déjà peint dedans.
 // - direction=défilement : bitmap resserré sur le texte seul (width =
 //   largeur du texte, height=SCREEN_H) ; color_bg sert à peindre le fond
 //   autour à chaque pas de défilement.
+// - gap_native_px : écart physique entre les 2 écrans (réglage utilisateur,
+//   voir SettingsStore/interLensGapProvider côté app), converti en pixels
+//   natifs. Uniquement significatif pour SCREEN=SEQUENTIAL (ignoré sinon) :
+//   le texte y est invisible le temps de le traverser à la même vitesse que
+//   le défilement, comme dans l'aperçu (voir sequential_text_preview.dart).
 //
 // Payload SET_STATIC_IMAGE :
 //   | width(1) | height(1) | format(1) | data_len(2 LE) | data (voir format

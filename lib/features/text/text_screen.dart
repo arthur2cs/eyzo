@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/ble/ble_connection_state.dart';
 import '../../core/ble/ble_providers.dart';
+import '../../core/glasses_display.dart';
 import '../../core/storage/display_settings_providers.dart';
 import '../../core/storage/favorites_providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -67,7 +68,12 @@ class _TextScreenState extends ConsumerState<TextScreen> {
 
     setState(() => _sending = true);
     try {
-      await ref.read(bleServiceProvider).sendText(_target, _content);
+      final gapNativePx = GlassesDisplay.gapMmToNativePx(
+        ref.read(interLensGapProvider),
+      );
+      await ref
+          .read(bleServiceProvider)
+          .sendText(_target, _content, gapNativePx: gapNativePx);
       if (mounted) {
         ScaffoldMessenger.of(
           context,

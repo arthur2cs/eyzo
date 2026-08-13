@@ -283,9 +283,17 @@ class EyzoBleService {
     }
   }
 
-  Future<void> sendText(TargetScreen screen, TextContent content) {
+  Future<void> sendText(
+    TargetScreen screen,
+    TextContent content, {
+    int gapNativePx = 0,
+  }) {
     return _runExclusive((generation) async {
-      final chunks = await EyzoPacketBuilder.setText(screen, content);
+      final chunks = await EyzoPacketBuilder.setText(
+        screen,
+        content,
+        gapNativePx: gapNativePx,
+      );
       await _writeChunks(chunks, generation);
     });
   }

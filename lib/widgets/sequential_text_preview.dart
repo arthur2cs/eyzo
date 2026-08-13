@@ -112,13 +112,12 @@ class _SequentialTextPreviewState extends State<SequentialTextPreview> {
   /// Écart, en pixels **natifs** (voir GlassesDisplay.nativeWidth), entre
   /// les 2 écrans — c'est dans cette même unité que [_virtualX] avance
   /// (1 pixel natif par pas, voir _tick), pour que la vitesse perçue reste
-  /// identique à celle du firmware même en tenant compte de cet écart
-  /// purement visuel (le firmware, lui, n'a aucune notion d'écart : les 2
-  /// écrans y sont une bande continue de 2xSCREEN_W, voir protocol.h).
+  /// identique à celle du firmware même en tenant compte de cet écart. Même
+  /// formule que le firmware (payload SET_TEXT, champ `gap_native_px`, voir
+  /// protocol.h et packet_builder.dart) : ce n'est plus purement visuel côté
+  /// app, le firmware élargit lui aussi sa bande virtuelle de cet écart.
   double get _nativeGapPx =>
-      widget.interLensGapMm /
-      GlassesDisplay.lensWidthMm *
-      GlassesDisplay.nativeWidth;
+      GlassesDisplay.gapMmToNativePx(widget.interLensGapMm).toDouble();
 
   double get _combinedNativeWidth =>
       GlassesDisplay.nativeWidth * 2 + _nativeGapPx;

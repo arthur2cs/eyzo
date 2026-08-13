@@ -42,4 +42,12 @@ class GlassesDisplay {
   /// de lunettes, indépendant de la résolution réelle des données envoyées
   /// (voir specs.md §3).
   static const double previewAspectRatio = 3 / 2;
+
+  /// Convertit l'écart inter-écran réglé par l'utilisateur (mm, voir
+  /// [SettingsStore]/`interLensGapProvider`) en pixels natifs — même formule
+  /// utilisée par l'aperçu (`SequentialTextPreview._nativeGapPx`) et par le
+  /// firmware (payload `SET_TEXT`, champ `gap_native_px`, voir specs.md
+  /// §6.3), pour que les 2 restent synchronisés au pixel près.
+  static int gapMmToNativePx(double gapMm) =>
+      (gapMm / lensWidthMm * nativeWidth).round();
 }

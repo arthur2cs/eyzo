@@ -179,9 +179,10 @@ void dispatch(uint8_t cmd, uint8_t screen, const uint8_t *payload, uint32_t len)
   switch (cmd) {
     case EyzoProtocol::CMD_SET_TEXT: {
       // Bitmap déjà rendu côté app (voir protocol.h) : direction, vitesse,
-      // couleur de fond, largeur/hauteur, format puis pixels RGB565
-      // (bruts ou compressés zlib selon `format`).
-      if (len < 8) {
+      // couleur de fond, largeur/hauteur, écart inter-écran (Séquentiel
+      // uniquement), format puis pixels RGB565 (bruts ou compressés zlib
+      // selon `format`).
+      if (len < 10) {
         sendNack(cmd, screen, EyzoProtocol::ERR_OVERFLOW);
         return;
       }
@@ -190,7 +191,8 @@ void dispatch(uint8_t cmd, uint8_t screen, const uint8_t *payload, uint32_t len)
       uint16_t colorBg = readU16LE(&payload[2]);
       uint16_t bitmapWidth = readU16LE(&payload[4]);
       uint8_t bitmapHeight = payload[6];
-      uint8_t format = payload[7];
+      uint16_t gapNativePx = readU16LE(&payload[7]);
+      uint8_t format = payload[9];
       if (bitmapHeight != SCREEN_H) {
         sendNack(cmd, screen, EyzoProtocol::ERR_OVERFLOW);
         return;
@@ -198,11 +200,12 @@ void dispatch(uint8_t cmd, uint8_t screen, const uint8_t *payload, uint32_t len)
       const uint8_t *pixels;
       uint32_t pixelLen;
       uint32_t expectedLen = (uint32_t)bitmapWidth * bitmapHeight * 2;
-      if (!resolvePixels(cmd, screen, format, &payload[8], len - 8, expectedLen, &pixels,
+      if (!resolvePixels(cmd, screen, format, &payload[10], len - 10, expectedLen, &pixels,
                           &pixelLen)) {
         return;
       }
-      DisplayManager::setText(screen, direction, speed, colorBg, bitmapWidth, pixels, pixelLen);
+      DisplayManager::setText(screen, direction, speed, colorBg, bitmapWidth, gapNativePx, pixels,
+                               pixelLen);
       break;
     }
     case EyzoProtocol::CMD_SET_STATIC_IMAGE: {

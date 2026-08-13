@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../core/ble/ble_connection_state.dart';
 import '../../core/ble/ble_providers.dart';
+import '../../core/glasses_display.dart';
+import '../../core/storage/display_settings_providers.dart';
 import '../../core/storage/favorites_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/favorite_item.dart';
@@ -30,7 +32,14 @@ class FavoritesScreen extends ConsumerWidget {
     final service = ref.read(bleServiceProvider);
     try {
       if (item.type == FavoriteType.text && item.textContent != null) {
-        await service.sendText(item.targetScreen, item.textContent!);
+        final gapNativePx = GlassesDisplay.gapMmToNativePx(
+          ref.read(interLensGapProvider),
+        );
+        await service.sendText(
+          item.targetScreen,
+          item.textContent!,
+          gapNativePx: gapNativePx,
+        );
       } else if (item.type == FavoriteType.animation &&
           item.animation != null) {
         final anim = item.animation!;

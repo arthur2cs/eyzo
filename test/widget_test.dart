@@ -55,9 +55,9 @@ void main() {
       // packet_builder.dart) fait tenir le bitmap plein écran (160x128) dans
       // un seul chunk BLE, là où il en fallait plusieurs dizaines en brut.
       expect(chunks.length, 1);
-      // format = 1 (zlib) à l'offset 7 du payload SET_TEXT (voir specs.md
-      // §6.3), donc à l'offset 9 (en-tête de chunk) + 7 = 16 dans la trame.
-      expect(chunks[0][16], EyzoProtocol.pixelFormatZlib);
+      // format = 1 (zlib) à l'offset 9 du payload SET_TEXT (voir specs.md
+      // §6.3), donc à l'offset 9 (en-tête de chunk) + 9 = 18 dans la trame.
+      expect(chunks[0][18], EyzoProtocol.pixelFormatZlib);
 
       expectValidFraming(
         chunks,
