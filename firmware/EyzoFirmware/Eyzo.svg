@@ -1,0 +1,92 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+ "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+ width="144.519mm" height="47.239mm" viewBox="0 0 1434.652241 468.948924"
+ preserveAspectRatio="xMidYMid meet" style="overflow: visible">
+<g transform="translate(-747.747428,754.865837) scale(0.100000,-0.100000)"
+fill="#2f2f2f" stroke="none">
+<path d="M10150 7539 c-831 -13 -1962 -68 -2170 -105 -99 -17 -226 -57 -280
+-88 -94 -53 -166 -146 -206 -266 -31 -91 -23 -306 70 -1945 87 -1523 87 -1531
+117 -1660 68 -289 146 -392 349 -460 335 -111 1129 -153 2945 -156 1073 -1
+1301 11 1595 88 259 67 393 138 558 297 188 180 298 390 601 1151 199 497 262
+667 337 910 52 168 70 209 111 246 58 55 132 81 288 104 127 19 253 19 380 0
+164 -24 226 -47 281 -107 45 -47 56 -72 115 -263 71 -232 147 -436 347 -935
+292 -728 399 -930 588 -1110 159 -151 307 -228 564 -294 297 -76 525 -88 1595
+-87 1809 3 2620 46 2944 156 167 56 244 142 310 345 55 167 58 204 148 1770
+49 852 86 1583 87 1700 1 190 -1 210 -22 270 -61 175 -184 268 -423 321 -131
+28 -226 37 -739 63 -1108 58 -1859 72 -2875 51 -860 -18 -955 -25 -1170 -84
+-241 -67 -493 -204 -844 -459 -369 -268 -419 -286 -631 -237 -218 50 -328 65
+-475 65 -150 0 -240 -12 -450 -62 -164 -38 -214 -35 -329 22 -45 22 -155 94
+-246 160 -493 362 -787 506 -1131 555 -57 8 -210 19 -339 25 -257 11 -1318 31
+-1470 28 -52 -1 -291 -5 -530 -9z"/>
+</g>
+<!-- Repère : point du contour touchant la bounding box (coin haut-gauche), en (0, 56) unités locales = (0mm, 5.641mm) depuis le coin haut-gauche de la bounding box -->
+<g id="reference-point" stroke="#ff0000" stroke-width="8" fill="none">
+<line x1="-35" y1="56" x2="35" y2="56"/>
+<line x1="0" y1="21" x2="0" y2="91"/>
+<circle cx="0" cy="56" r="6" fill="#ff0000" stroke="none"/>
+</g>
+<!-- Cadre écran : depuis la croix, remonter de 1.29mm puis aller à droite de 2.725mm -> coin haut-gauche = (2.725mm, 4.351mm) ; rectangle 56mm x 35.6mm -->
+<rect id="screen-frame" x="27.051" y="43.194" width="555.917" height="353.404" fill="none" stroke="#0000ff" stroke-width="3"/>
+<!-- 8 trous, ligne verticale à 1.5mm du bord droit du cadre (x=568.077 unités = 57.225mm), centrés sur la largeur du cadre, pas de 2.54mm, diamètre 1.02mm -->
+<g id="connector-holes" fill="none" stroke="#0000ff" stroke-width="3">
+<circle cx="568.077" cy="131.644" r="5.063"/>
+<circle cx="568.077" cy="156.859" r="5.063"/>
+<circle cx="568.077" cy="182.074" r="5.063"/>
+<circle cx="568.077" cy="207.289" r="5.063"/>
+<circle cx="568.077" cy="232.504" r="5.063"/>
+<circle cx="568.077" cy="257.718" r="5.063"/>
+<circle cx="568.077" cy="282.933" r="5.063"/>
+<circle cx="568.077" cy="308.148" r="5.063"/>
+</g>
+<!-- Symétrique par rapport à l'axe vertical central de la bounding box (x=717.326) : deuxième écran et ses trous, en vert -->
+<rect id="screen-frame-mirror" x="851.684" y="43.194" width="555.917" height="353.404" fill="none" stroke="#00ff00" stroke-width="3"/>
+<g id="connector-holes-mirror" fill="none" stroke="#00ff00" stroke-width="3">
+<circle cx="866.575" cy="131.644" r="5.063"/>
+<circle cx="866.575" cy="156.859" r="5.063"/>
+<circle cx="866.575" cy="182.074" r="5.063"/>
+<circle cx="866.575" cy="207.289" r="5.063"/>
+<circle cx="866.575" cy="232.504" r="5.063"/>
+<circle cx="866.575" cy="257.718" r="5.063"/>
+<circle cx="866.575" cy="282.933" r="5.063"/>
+<circle cx="866.575" cy="308.148" r="5.063"/>
+</g>
+<!-- Composants verso (face arrière, opposée aux écrans) : orange pointillé pour les distinguer du recto (écrans, traits pleins) -->
+<!-- Alimentation batterie, 2 trous, pas 2.54mm, verso, côté écran bleu, sur la longueur basse du rectangle bleu (même position horizontale, à 3.5mm du coin droit) -->
+<g id="battery-holes" fill="none" stroke="#ff8800" stroke-width="3">
+<circle cx="548.223" cy="396.598" r="5.063"/>
+<circle cx="523.008" cy="396.598" r="5.063"/>
+</g>
+<!-- Symétrique par rapport à l'axe vertical central (x=717.326) de l'ESP32 + bouton + interrupteur : même ensemble derrière l'écran 2 (vert).
+     Les trous batterie ne sont pas dupliqués ici (déjà placés côté écran 2). -->
+<g id="esp32-s3-mini-mirror" stroke="#ff8800" stroke-width="3" fill="none" stroke-dasharray="10 6">
+<rect x="1196.402" y="131.545" width="208.469" height="176.702"/>
+<rect x="1404.871" y="178.202" width="19.854" height="83.388"/>
+<g id="esp32-pins-mirror" fill="none" stroke="#ff8800" stroke-width="3" stroke-dasharray="none">
+<circle cx="1376.281" cy="131.545" r="5.063"/>
+<circle cx="1351.066" cy="131.545" r="5.063"/>
+<circle cx="1325.851" cy="131.545" r="5.063"/>
+<circle cx="1300.636" cy="131.545" r="5.063"/>
+<circle cx="1275.422" cy="131.545" r="5.063"/>
+<circle cx="1250.207" cy="131.545" r="5.063"/>
+<circle cx="1224.992" cy="131.545" r="5.063"/>
+<circle cx="1376.281" cy="308.247" r="5.063"/>
+<circle cx="1351.066" cy="308.247" r="5.063"/>
+<circle cx="1325.851" cy="308.247" r="5.063"/>
+<circle cx="1300.636" cy="308.247" r="5.063"/>
+<circle cx="1275.422" cy="308.247" r="5.063"/>
+<circle cx="1250.207" cy="308.247" r="5.063"/>
+<circle cx="1224.992" cy="308.247" r="5.063"/>
+</g>
+</g>
+<g id="bt-button-mirror" fill="none" stroke="#ff8800" stroke-width="3">
+<circle cx="1363.673" cy="397.591" r="5.063"/>
+<circle cx="1313.244" cy="397.591" r="5.063"/>
+</g>
+<g id="slide-switch-mirror" fill="none" stroke="#ff8800" stroke-width="3">
+<circle cx="1258.248" cy="397.591" r="5.063"/>
+<circle cx="1233.033" cy="397.591" r="5.063"/>
+<circle cx="1207.818" cy="397.591" r="5.063"/>
+</g>
+</svg>
