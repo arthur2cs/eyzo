@@ -4,8 +4,11 @@
 #include <Adafruit_ST7735.h>
 #include <SPI.h>
 #include <esp_heap_caps.h>
+#include <math.h>
 
+#include "bluetooth_icon.h"
 #include "config.h"
+#include "panda_boot_icon.h"
 #include "protocol.h"
 
 // Notes d'implémentation importantes (voir specs.md §6.3 et les modèles Dart
@@ -153,6 +156,17 @@ struct SequentialState {
 };
 
 SequentialState s_seq;
+
+// Écran d'état actif indépendant des channels ci-dessus (voir showBoot/
+// showConnected/showDisconnected/showPairing) : seul l'appairage a besoin
+// d'être réanimé en continu (barre de compte à rebours + logo qui "respire"),
+// les 3 autres sont des images statiques dessinées une fois puis laissées
+// telles quelles jusqu'au prochain appel.
+enum class StatusScreen : uint8_t { None, Pairing };
+StatusScreen s_statusScreen = StatusScreen::None;
+uint32_t s_pairingStartMs = 0;
+uint32_t s_pairingDurationMs = 0;
+uint32_t s_lastPairingFrameMs = 0;
 
 // --- DEBUG TEMPORAIRE : mesure de la cadence réelle de défilement, à
 // retirer une fois le diagnostic terminé (écart de vitesse aperçu app vs
@@ -466,32 +480,162 @@ void updateSequential() {
 }
 
 // --- Messages d'état (boot / appairage / connexion), voir specs.md §4.1 ---
+//
+// Le logo Bluetooth est un bitmap (voir bluetooth_icon.h, généré depuis
+// bluetooth.jpg — le reproduire à la main en vectoriel donnait un rune trop
+// approximatif, difficilement reconnaissable). Seuls la pastille de statut
+// (check/croix) et la barre de compte à rebours restent tracées à la volée
+// avec les primitives Adafruit_GFX.
 
-void drawStatusMessage(const char *msg, uint16_t color) {
+constexpr uint16_t kIconColor = ST77XX_WHITE;  // remplissage de la barre de compte à rebours
+constexpr uint16_t kTrackGray = 0x2945;        // piste de la barre de compte à rebours
+
+void clearBothCanvases() {
+  canvasLeft.fillScreen(ST77XX_BLACK);
+  canvasRight.fillScreen(ST77XX_BLACK);
+}
+
+void blitBoth() {
+  blit(tftLeft, canvasLeft);
+  blit(tftRight, canvasRight);
+}
+
+// Adafruit_GFX ne trace les lignes qu'en 1px : on simule une épaisseur en
+// superposant plusieurs traits parallèles décalés le long de la normale au
+// segment (net quel que soit l'angle, contrairement à un simple offset x/y).
+void drawThickLine(GFXcanvas16 &canvas, int32_t x0, int32_t y0, int32_t x1, int32_t y1,
+                    uint16_t color, int32_t thickness) {
+  float dx = (float)(x1 - x0), dy = (float)(y1 - y0);
+  float len = sqrtf(dx * dx + dy * dy);
+  float nx = 0.0f, ny = 0.0f;
+  if (len > 0.001f) {
+    nx = -dy / len;
+    ny = dx / len;
+  }
+  int32_t half = thickness / 2;
+  for (int32_t o = -half; o <= half; o++) {
+    int32_t ox = (int32_t)lroundf(nx * o);
+    int32_t oy = (int32_t)lroundf(ny * o);
+    canvas.drawLine(x0 + ox, y0 + oy, x1 + ox, y1 + oy, color);
+  }
+}
+
+// Nearest-neighbor, comme upscaleNearestToCanvas() mais pour un bitmap natif
+// uint16_t (voir bluetooth_icon.h/panda_boot_icon.h) positionné et
+// dimensionné librement dans le canvas plutôt que plein écran — utilisé pour
+// faire "respirer" le logo Bluetooth pendant l'appairage (voir
+// drawPairingFrame()).
+void drawBitmapScaled(GFXcanvas16 &canvas, const uint16_t *src, int32_t srcW, int32_t srcH,
+                       int32_t dstX, int32_t dstY, int32_t dstW, int32_t dstH) {
+  for (int32_t y = 0; y < dstH; y++) {
+    int32_t sy = (int32_t)((int64_t)y * srcH / dstH);
+    for (int32_t x = 0; x < dstW; x++) {
+      int32_t sx = (int32_t)((int64_t)x * srcW / dstW);
+      canvas.drawPixel(dstX + x, dstY + y, src[sy * srcW + sx]);
+    }
+  }
+}
+
+// Pastille de statut en "sous-titre" du logo (voir showConnected/
+// showDisconnected) : un rond plein + une coche ou une croix blanche dedans.
+void drawBadgeCircle(GFXcanvas16 &canvas, int32_t cx, int32_t cy, int32_t r, uint16_t fillColor) {
+  canvas.fillCircle(cx, cy, r, fillColor);
+  canvas.drawCircle(cx, cy, r, ST77XX_BLACK);  // cerne fin pour la détacher du logo
+}
+
+void drawCheckMark(GFXcanvas16 &canvas, int32_t cx, int32_t cy, int32_t r, uint16_t color) {
+  drawThickLine(canvas, cx - r / 2, cy, cx - r / 8, cy + r / 2, color, 3);
+  drawThickLine(canvas, cx - r / 8, cy + r / 2, cx + (r * 3) / 5, cy - r / 3, color, 3);
+}
+
+void drawCrossMark(GFXcanvas16 &canvas, int32_t cx, int32_t cy, int32_t r, uint16_t color) {
+  int32_t d = r / 2;
+  drawThickLine(canvas, cx - d, cy - d, cx + d, cy + d, color, 3);
+  drawThickLine(canvas, cx - d, cy + d, cx + d, cy - d, color, 3);
+}
+
+// Logo + pastille de statut (connecté/déconnecté) : même mise en page pour
+// les 2 dalles — logo centré et bien rempli, pastille en bas à droite de sa
+// boîte englobante (comme une icône "titre" + "sous-titre" fusionnées en une
+// seule, voir la demande produit).
+void drawBluetoothStatus(uint16_t badgeColor, bool checkNotCross) {
   s_left.mode = Mode::None;
   s_right.mode = Mode::None;
   s_seq.active = false;
+  s_statusScreen = StatusScreen::None;
 
-  canvasLeft.fillScreen(ST77XX_BLACK);
-  canvasRight.fillScreen(ST77XX_BLACK);
-  canvasLeft.setTextSize(1);
-  canvasLeft.setTextColor(color);
-  canvasRight.setTextSize(1);
-  canvasRight.setTextColor(color);
+  clearBothCanvases();
 
-  int16_t x1, y1;
-  uint16_t w, h;
-  canvasLeft.getTextBounds(msg, 0, 0, &x1, &y1, &w, &h);
-  int32_t x = (SCREEN_W - (int32_t)w) / 2;
-  int32_t y = (SCREEN_H - (int32_t)h) / 2 - y1;
+  // Même boîte englobante que le logo panda du boot (voir showBoot()) :
+  // BLUETOOTH_ICON_W x BLUETOOTH_ICON_H centré sur l'écran (SCREEN_W=160,
+  // SCREEN_H=128). La pastille de statut mord sur le coin bas-droit de cette
+  // boîte, comme une icône "titre" + "sous-titre" fusionnées en une seule.
+  constexpr int32_t kIconX = (SCREEN_W - BLUETOOTH_ICON_W) / 2;
+  constexpr int32_t kIconY = (SCREEN_H - BLUETOOTH_ICON_H) / 2;
+  constexpr int32_t kBadgeR = 18;
+  constexpr int32_t kBadgeCx = kIconX + BLUETOOTH_ICON_W - 14;
+  constexpr int32_t kBadgeCy = kIconY + BLUETOOTH_ICON_H - 14;
 
-  canvasLeft.setCursor(x, y);
-  canvasLeft.print(msg);
-  canvasRight.setCursor(x, y);
-  canvasRight.print(msg);
+  for (GFXcanvas16 *canvas : {&canvasLeft, &canvasRight}) {
+    canvas->drawRGBBitmap(kIconX, kIconY, kBluetoothIconRgb565, BLUETOOTH_ICON_W,
+                           BLUETOOTH_ICON_H);
+    drawBadgeCircle(*canvas, kBadgeCx, kBadgeCy, kBadgeR, badgeColor);
+    if (checkNotCross) {
+      drawCheckMark(*canvas, kBadgeCx, kBadgeCy, kBadgeR, ST77XX_WHITE);
+    } else {
+      drawCrossMark(*canvas, kBadgeCx, kBadgeCy, kBadgeR, ST77XX_WHITE);
+    }
+  }
 
-  blit(tftLeft, canvasLeft);
-  blit(tftRight, canvasRight);
+  blitBoth();
+}
+
+// Anime en continu la fenêtre d'appairage tant qu'elle est active (voir
+// loop()) : logo Bluetooth qui "respire" (pulse doux, sans changer la mise en
+// page) au-dessus d'une barre de compte à rebours qui se vide — "groovy" et
+// bien visible, occupe une bonne partie des dalles.
+constexpr uint32_t kPairingFrameIntervalMs = 70;
+
+void drawPairingFrame(float remainingFrac) {
+  uint32_t now = millis();
+  float phase = (float)(now % 1400) / 1400.0f;  // période de respiration ~1.4s
+  float breathe = (sinf(phase * 2.0f * (float)PI) + 1.0f) / 2.0f;  // 0..1
+  int32_t dstSize = 74 + (int32_t)(breathe * 12.0f);               // 74..86 (logo carré)
+
+  constexpr int32_t kBarX0 = 14, kBarX1 = SCREEN_W - 14;
+  constexpr int32_t kBarY0 = 102, kBarY1 = 114;
+  constexpr int32_t kBarW = kBarX1 - kBarX0;
+  constexpr int32_t kBarH = kBarY1 - kBarY0;
+  // Centre le logo dans la zone libre au-dessus de la barre.
+  constexpr int32_t kIconAreaCy = kBarY0 / 2;
+  int32_t dstX = SCREEN_W / 2 - dstSize / 2;
+  int32_t dstY = kIconAreaCy - dstSize / 2;
+
+  int32_t fillW = (int32_t)((float)kBarW * remainingFrac);
+  if (fillW < 0) fillW = 0;
+  if (fillW > kBarW) fillW = kBarW;
+
+  clearBothCanvases();
+  for (GFXcanvas16 *canvas : {&canvasLeft, &canvasRight}) {
+    drawBitmapScaled(*canvas, kBluetoothIconRgb565, BLUETOOTH_ICON_W, BLUETOOTH_ICON_H, dstX, dstY,
+                      dstSize, dstSize);
+    canvas->drawRoundRect(kBarX0, kBarY0, kBarW, kBarH, 3, kTrackGray);
+    if (fillW > 2) canvas->fillRect(kBarX0 + 1, kBarY0 + 1, fillW - 2, kBarH - 2, kIconColor);
+  }
+  blitBoth();
+}
+
+void updatePairingAnimation() {
+  if (s_statusScreen != StatusScreen::Pairing) return;
+  uint32_t now = millis();
+  if (now - s_lastPairingFrameMs < kPairingFrameIntervalMs) return;
+  s_lastPairingFrameMs = now;
+
+  uint32_t elapsed = now - s_pairingStartMs;
+  float remainingFrac =
+      s_pairingDurationMs == 0 ? 0.0f : 1.0f - (float)elapsed / (float)s_pairingDurationMs;
+  if (remainingFrac < 0.0f) remainingFrac = 0.0f;
+  drawPairingFrame(remainingFrac);
 }
 
 void applyTextBitmapToChannel(ScreenChannel &ch, uint8_t direction, uint16_t colorBg,
@@ -602,16 +746,36 @@ void loop() {
     updateChannel(s_left, tftLeft, canvasLeft);
     updateChannel(s_right, tftRight, canvasRight);
   }
+  updatePairingAnimation();
 }
 
-void showBoot() { drawStatusMessage("EYZO", ST77XX_WHITE); }
-void showDisconnected() { drawStatusMessage("Deconnecte", ST77XX_WHITE); }
-void showConnected() { drawStatusMessage("Connecte", ST77XX_GREEN); }
+void showBoot() {
+  s_left.mode = Mode::None;
+  s_right.mode = Mode::None;
+  s_seq.active = false;
+  s_statusScreen = StatusScreen::None;
+
+  clearBothCanvases();
+  int32_t x = (SCREEN_W - PANDA_BOOT_ICON_W) / 2;
+  int32_t y = (SCREEN_H - PANDA_BOOT_ICON_H) / 2;
+  canvasLeft.drawRGBBitmap(x, y, kPandaBootIconRgb565, PANDA_BOOT_ICON_W, PANDA_BOOT_ICON_H);
+  canvasRight.drawRGBBitmap(x, y, kPandaBootIconRgb565, PANDA_BOOT_ICON_W, PANDA_BOOT_ICON_H);
+  blitBoth();
+}
+
+void showDisconnected() { drawBluetoothStatus(ST77XX_RED, /*checkNotCross=*/false); }
+void showConnected() { drawBluetoothStatus(ST77XX_GREEN, /*checkNotCross=*/true); }
 
 void showPairing(uint32_t secondsLeft) {
-  char buf[24];
-  snprintf(buf, sizeof(buf), "Appairage %lus", (unsigned long)secondsLeft);
-  drawStatusMessage(buf, ST77XX_YELLOW);
+  s_left.mode = Mode::None;
+  s_right.mode = Mode::None;
+  s_seq.active = false;
+
+  s_pairingStartMs = millis();
+  s_pairingDurationMs = secondsLeft * 1000UL;
+  s_lastPairingFrameMs = 0;  // force un premier rendu immédiat, voir updatePairingAnimation()
+  s_statusScreen = StatusScreen::Pairing;
+  updatePairingAnimation();
 }
 
 // Éteint un canal (mode/animation/image/texte réinitialisés, canvas noir
